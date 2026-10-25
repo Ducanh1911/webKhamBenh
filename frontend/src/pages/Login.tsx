@@ -4,6 +4,8 @@ import { login } from '../lib/api'
 export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () => void; onGoRegister: () => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(true)
+  const [showForgot, setShowForgot] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -12,7 +14,7 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
     setError('')
     setLoading(true)
     try {
-      await login(email, password)
+      await login(email, password, remember)
       onSuccess()
     } catch {
       setError('Email hoặc mật khẩu không đúng. Vui lòng thử lại.')
@@ -86,10 +88,15 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
 
             <div className="mt-4 flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 text-ink-700 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 accent-brand-700 rounded" /> Ghi nhớ đăng nhập
+                <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="w-4 h-4 accent-brand-700 rounded" /> Ghi nhớ đăng nhập
               </label>
-              <a href="#" className="font-medium text-brand-700 hover:text-brand-800">Quên mật khẩu?</a>
+              <button type="button" onClick={() => setShowForgot(v => !v)} className="font-medium text-brand-700 hover:text-brand-800">Quên mật khẩu?</button>
             </div>
+            {showForgot && (
+              <p className="mt-4 rounded-lg bg-amber-50 border border-amber-100 text-amber-800 text-sm px-3.5 py-2.5">
+                Tính năng đặt lại mật khẩu qua email chưa được bật. Bạn có thể đăng ký tài khoản mới bằng email khác, hoặc liên hệ phòng khám để được hỗ trợ đặt lại mật khẩu.
+              </p>
+            )}
 
             <button
               type="submit" disabled={loading}
