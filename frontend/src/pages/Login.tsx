@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { login } from '../lib/api'
 
-export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
+export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () => void; onGoRegister: () => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -100,7 +100,7 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
 
             <p className="mt-5 text-center text-sm text-ink-500">
               Chưa có tài khoản?{' '}
-              <a href="#" className="font-medium text-brand-700 hover:text-brand-800">Đăng ký miễn phí</a>
+              <button type="button" onClick={onGoRegister} className="font-medium text-brand-700 hover:text-brand-800">Đăng ký miễn phí</button>
             </p>
           </form>
 
