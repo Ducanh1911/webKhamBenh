@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { @apply bg-[#f7f8f7] text-ink-900 antialiased; }
+input:focus { outline: none; }
