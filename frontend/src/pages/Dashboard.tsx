@@ -64,14 +64,20 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  const [confirmCancelId, setConfirmCancelId] = useState<number | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+
   async function onCancel(id: number) {
-    if (!confirm('Bạn chắc chắn muốn hủy lịch hẹn này?')) return
+    setCancelling(true)
     try {
       await cancelAppointment(id)
       setNotice('Đã hủy lịch hẹn.')
+      setConfirmCancelId(null)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Hủy lịch không thành công.')
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -164,7 +170,15 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-brand-700">{STATUS_LABEL[a.status] ?? a.status}</span>
                   {(a.status === 'PENDING' || a.status === 'pending' || a.status === 'CONFIRMED' || a.status === 'confirmed') && (
-                    <button onClick={() => onCancel(a.id)} className="text-sm font-medium text-red-600 hover:text-red-700 border border-red-200 rounded-lg px-3 py-2 bg-white">Hủy lịch</button>
+                    confirmCancelId === a.id ? (
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm text-ink-700">Chắc chắn hủy?</span>
+                        <button onClick={() => onCancel(a.id)} disabled={cancelling} className="text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 rounded-lg px-3 py-2">Hủy lịch này</button>
+                        <button onClick={() => setConfirmCancelId(null)} className="text-sm font-medium text-ink-700 border border-slate-200 rounded-lg px-3 py-2 bg-white">Giữ lại</button>
+                      </span>
+                    ) : (
+                      <button onClick={() => setConfirmCancelId(a.id)} className="text-sm font-medium text-red-600 hover:text-red-700 border border-red-200 rounded-lg px-3 py-2 bg-white">Hủy lịch</button>
+                    )
                   )}
                 </div>
               </div>
