@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import { listDoctors, listSpecialties, listMyAppointments, createAppointment, cancelAppointment, type Doctor, type Specialty, type Appointment } from '../lib/api'
+import { listDoctors, listSpecialties, listMyAppointments, createAppointment, cancelAppointment, requestTriage, type Doctor, type Specialty, type Appointment, type TriageResult } from '../lib/api'
+
+const PRIORITY_LABEL: Record<string, string> = {
+  routine: 'Khám thường',
+  urgent: 'Khám gấp trong ngày',
+  emergency: 'Đi cấp cứu ngay — gọi 115',
+}
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: 'Chờ xác nhận', pending: 'Chờ xác nhận',
@@ -25,6 +31,23 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [time, setTime] = useState('09:00')
   const [reason, setReason] = useState('')
   const [booking, setBooking] = useState(false)
+  const [symptoms, setSymptoms] = useState('')
+  const [triage, setTriage] = useState<TriageResult | null>(null)
+  const [triaging, setTriaging] = useState(false)
+
+  async function onTriage(e: React.FormEvent) {
+    e.preventDefault()
+    if (symptoms.trim().length < 2) return
+    setTriaging(true)
+    setError('')
+    try {
+      setTriage(await requestTriage(symptoms.trim()))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không gợi ý được bác sĩ, vui lòng thử lại.')
+    } finally {
+      setTriaging(false)
+    }
+  }
 
   async function load() {
     setLoading(true)
@@ -99,6 +122,33 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
 
         {notice && <p className="mt-5 rounded-lg bg-teal-50 border border-teal-100 text-teal-800 text-sm px-3.5 py-2.5">{notice}</p>}
         {error && <p className="mt-5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm px-3.5 py-2.5">{error}</p>}
+
+        <form onSubmit={onTriage} className="mt-6 bg-white border border-slate-200 rounded-xl p-5 shadow-card">
+          <label className="block">
+            <span className="text-sm font-medium">Mô tả triệu chứng của bạn</span>
+            <input type="text" value={symptoms} onChange={e => setSymptoms(e.target.value)} placeholder="Ví dụ: đau răng, sưng lợi 2 ngày" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
+          </label>
+          <button type="submit" disabled={triaging || symptoms.trim().length < 2} className="mt-3 h-11 px-5 rounded-lg bg-brand-700 hover:bg-brand-800 disabled:opacity-60 text-white text-sm font-medium">{triaging ? 'Đang gợi ý…' : 'Gợi ý bác sĩ'}</button>
+          {triage && (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              {triage.priority === 'emergency' ? (
+                <p className="font-semibold text-red-700">Dấu hiệu nguy hiểm — {PRIORITY_LABEL[triage.priority]}</p>
+              ) : (
+                <p className="font-semibold">Gợi ý: {triage.specialty ? `${triage.specialty.name}${triage.doctors.length > 0 ? ` · ${triage.doctors[0].name}` : ''}` : 'Chưa xác định được chuyên khoa'} <span className="text-sm font-medium text-brand-700">· {PRIORITY_LABEL[triage.priority] ?? triage.priority}</span></p>
+              )}
+              <p className="text-sm text-ink-500 mt-1">{triage.reason}</p>
+              {triage.follow_up_questions.length > 0 && (
+                <ul className="text-sm text-ink-700 mt-2 list-disc pl-5 space-y-0.5">
+                  {triage.follow_up_questions.map(q => <li key={q}>{q}</li>)}
+                </ul>
+              )}
+              {triage.specialty && triage.priority !== 'emergency' && (
+                <button type="button" onClick={() => setSpecialtyId(triage.specialty!.id)} className="mt-3 h-10 px-4 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium">Xem bác sĩ {triage.specialty.name}</button>
+              )}
+              <p className="text-xs text-ink-500 mt-3">{triage.disclaimer}</p>
+            </div>
+          )}
+        </form>
 
         <div className="mt-6 flex flex-wrap gap-2">
           <button onClick={() => setSpecialtyId(undefined)} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${specialtyId === undefined ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>Tất cả chuyên khoa</button>

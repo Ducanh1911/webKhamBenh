@@ -69,6 +69,25 @@ export async function listDoctors(specialtyId?: number): Promise<Doctor[]> {
   if (!res.ok) throw new Error('Không tải được danh sách bác sĩ')
   return (await res.json()).doctors
 }
+export type TriageResult = {
+  specialty: { id: number; name: string } | null
+  doctors: { id: number; name: string }[]
+  priority: string
+  follow_up_questions: string[]
+  reason: string
+  confidence: string
+  source: string
+  disclaimer: string
+}
+export async function requestTriage(symptoms: string): Promise<TriageResult> {
+  const res = await fetch(`${API}/api/v1/triage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symptoms }),
+  })
+  if (!res.ok) await handleError(res, 'Không gợi ý được bác sĩ, vui lòng thử lại')
+  return res.json()
+}
 export async function listMyAppointments(): Promise<Appointment[]> {
   const res = await fetch(`${API}/api/v1/appointments/mine`, { headers: authHeaders() })
   if (!res.ok) await handleError(res, 'Không tải được lịch hẹn của bạn')
