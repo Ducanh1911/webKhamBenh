@@ -4,7 +4,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -22,4 +22,11 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Không tìm thấy người dùng")
+    return user
+
+
+def get_current_admin(user: User = Depends(get_current_user)) -> User:
+    """Chỉ tài khoản có role admin mới qua được. Tài khoản thường -> 403."""
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cần quyền quản trị")
     return user

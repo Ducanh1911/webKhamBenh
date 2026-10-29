@@ -102,6 +102,54 @@ export async function createAppointment(doctorId: number, startAt: string, reaso
   if (!res.ok) await handleError(res, 'Đặt lịch không thành công, vui lòng thử lại')
   return res.json()
 }
+export type Me = { id: number; full_name: string; email: string; role: string }
+export async function getMe(): Promise<Me> {
+  const res = await fetch(`${API}/api/v1/auth/me`, { headers: authHeaders() })
+  if (!res.ok) await handleError(res, 'Không tải được thông tin tài khoản')
+  return res.json()
+}
+
+export type AdminAppointment = Appointment & {
+  patient_id: number; patient_name: string; patient_email: string
+}
+export type AdminStats = {
+  total_users: number; total_doctors: number; total_appointments: number;
+  pending_appointments: number; confirmed_appointments: number; cancelled_appointments: number
+}
+export type AdminUser = { id: number; full_name: string; email: string; phone?: string | null; role: string }
+export async function listAdminStats(): Promise<AdminStats> {
+  const res = await fetch(`${API}/api/v1/admin/stats`, { headers: authHeaders() })
+  if (!res.ok) await handleError(res, 'Không tải được thống kê quản trị')
+  return res.json()
+}
+export async function listAdminAppointments(status?: string): Promise<AdminAppointment[]> {
+  const q = status ? `?status=${status}` : ''
+  const res = await fetch(`${API}/api/v1/admin/appointments${q}`, { headers: authHeaders() })
+  if (!res.ok) await handleError(res, 'Không tải được danh sách lịch hẹn')
+  return res.json()
+}
+export async function updateAdminAppointmentStatus(id: number, status: string): Promise<AdminAppointment> {
+  const res = await fetch(`${API}/api/v1/admin/appointments/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ status }),
+  })
+  if (!res.ok) await handleError(res, 'Đổi trạng thái lịch hẹn không thành công')
+  return res.json()
+}
+export async function listAdminUsers(): Promise<AdminUser[]> {
+  const res = await fetch(`${API}/api/v1/admin/users`, { headers: authHeaders() })
+  if (!res.ok) await handleError(res, 'Không tải được danh sách người dùng')
+  return res.json()
+}
+export async function updateUserRole(id: number, role: string): Promise<AdminUser> {
+  const res = await fetch(`${API}/api/v1/admin/users/${id}/role`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ role }),
+  })
+  if (!res.ok) await handleError(res, 'Đổi role không thành công')
+  return res.json()
+}
+
 export async function cancelAppointment(id: number): Promise<Appointment> {
   const res = await fetch(`${API}/api/v1/appointments/${id}/cancel`, {
     method: 'POST', headers: authHeaders(),
