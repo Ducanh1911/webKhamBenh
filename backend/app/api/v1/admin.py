@@ -18,6 +18,8 @@ from app.schemas.admin import (
     AdminStatsOut,
     AdminUserOut,
     AppointmentStatusUpdate,
+    PaginatedAdminAppointmentsOut,
+    PaginatedAdminUsersOut,
     UserRoleUpdate,
 )
 
@@ -76,19 +78,36 @@ def stats(admin: User = Depends(get_current_admin), db: Session = Depends(get_db
     )
 
 
-@router.get("/appointments", response_model=list[AdminAppointmentOut])
+def _page_params(page: int, page_size: int) -> tuple[int, int]:
+    if page < 1:
+        raise HTTPException(status_code=400, detail="Trang phải từ 1 trở lên")
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(status_code=400, detail="Số dòng mỗi trang phải từ 1 đến 100")
+    return page, page_size
+
+
+@router.get("/appointments", response_model=PaginatedAdminAppointmentsOut)
 def list_appointments(
     status: str | None = None,
+    page: int = 1,
+    page_size: int = 10,
     admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
+    page, page_size = _page_params(page, page_size)
     query = db.query(Appointment).order_by(Appointment.start_at.desc())
     if status:
         try:
             query = query.filter(Appointment.status == AppointmentStatus(status))
         except ValueError:
             raise HTTPException(status_code=400, detail="Trạng thái không hợp lệ")
-    return [_to_out(a, db) for a in query.all()]
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    total_pages = (total + page_size - 1) // page_size if total else 0
+    return PaginatedAdminAppointmentsOut(
+        items=[_to_out(a, db) for a in rows],
+        total=total, page=page, page_size=page_size, total_pages=total_pages,
+    )
 
 
 @router.patch("/appointments/{appointment_id}", response_model=AdminAppointmentOut)
@@ -115,16 +134,28 @@ def update_appointment_status(
     return _to_out(appt, db)
 
 
-@router.get("/users", response_model=list[AdminUserOut])
-def list_users(admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    rows = db.query(User).order_by(User.id).all()
-    return [
-        AdminUserOut(
-            id=u.id, full_name=u.full_name, email=u.email, phone=u.phone,
-            role=_status_str(u.role),
-        )
-        for u in rows
-    ]
+@router.get("/users", response_model=PaginatedAdminUsersOut)
+def list_users(
+    page: int = 1,
+    page_size: int = 10,
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    page, page_size = _page_params(page, page_size)
+    query = db.query(User).order_by(User.id)
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    total_pages = (total + page_size - 1) // page_size if total else 0
+    return PaginatedAdminUsersOut(
+        items=[
+            AdminUserOut(
+                id=u.id, full_name=u.full_name, email=u.email, phone=u.phone,
+                role=_status_str(u.role),
+            )
+            for u in rows
+        ],
+        total=total, page=page, page_size=page_size, total_pages=total_pages,
+    )
 
 
 @router.patch("/users/{user_id}/role", response_model=AdminUserOut)

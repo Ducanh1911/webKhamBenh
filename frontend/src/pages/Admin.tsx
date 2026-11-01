@@ -14,11 +14,37 @@ function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function Pagination({ page, totalPages, total, onChange }: { page: number; totalPages: number; total: number; onChange: (p: number) => void }) {
+  if (total === 0) return null
+  const start = Math.max(1, page - 2)
+  const end = Math.min(totalPages, page + 2)
+  const pages: number[] = []
+  for (let p = start; p <= end; p++) pages.push(p)
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <p className="text-sm text-ink-500">Tổng {total} · Trang {page} / {totalPages}</p>
+      <div className="flex items-center gap-1.5">
+        <button disabled={page <= 1} onClick={() => onChange(page - 1)} className="px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white disabled:opacity-50 disabled:cursor-not-allowed">← Trước</button>
+        {pages.map(p => (
+          <button key={p} onClick={() => onChange(p)} className={`w-9 h-9 rounded-lg text-sm font-medium border ${p === page ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>{p}</button>
+        ))}
+        <button disabled={page >= totalPages} onClick={() => onChange(page + 1)} className="px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white disabled:opacity-50 disabled:cursor-not-allowed">Sau →</button>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminPage({ onLogout, onGoBooking }: { onLogout: () => void; onGoBooking: () => void }) {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [appointments, setAppointments] = useState<AdminAppointment[]>([])
   const [users, setUsers] = useState<AdminUser[]>([])
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [apptPage, setApptPage] = useState(1)
+  const [apptTotalPages, setApptTotalPages] = useState(0)
+  const [apptTotal, setApptTotal] = useState(0)
+  const [userPage, setUserPage] = useState(1)
+  const [userTotalPages, setUserTotalPages] = useState(0)
+  const [userTotal, setUserTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -28,18 +54,24 @@ export default function AdminPage({ onLogout, onGoBooking }: { onLogout: () => v
     setError('')
     try {
       const [s, a, u] = await Promise.all([
-        listAdminStats(), listAdminAppointments(statusFilter || undefined), listAdminUsers(),
+        listAdminStats(), listAdminAppointments(statusFilter || undefined, apptPage), listAdminUsers(userPage),
       ])
       setStats(s)
-      setAppointments(a)
-      setUsers(u)
+      setAppointments(a.items)
+      setApptTotal(a.total)
+      setApptTotalPages(a.total_pages)
+      if (a.total_pages > 0 && apptPage > a.total_pages) setApptPage(a.total_pages)
+      setUsers(u.items)
+      setUserTotal(u.total)
+      setUserTotalPages(u.total_pages)
+      if (u.total_pages > 0 && userPage > u.total_pages) setUserPage(u.total_pages)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tải được dữ liệu quản trị.')
     } finally {
       setLoading(false)
     }
   }
-  useEffect(() => { load() }, [statusFilter])
+  useEffect(() => { load() }, [statusFilter, apptPage, userPage])
 
   async function changeStatus(id: number, status: string) {
     setError('')
@@ -100,7 +132,7 @@ export default function AdminPage({ onLogout, onGoBooking }: { onLogout: () => v
         <h2 className="text-lg font-semibold mt-10">Tất cả lịch hẹn</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {['', 'pending', 'confirmed', 'completed', 'cancelled'].map(s => (
-            <button key={s || 'all'} onClick={() => setStatusFilter(s)} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${statusFilter === s ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>
+            <button key={s || 'all'} onClick={() => { setStatusFilter(s); setApptPage(1) }} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${statusFilter === s ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>
               {s === '' ? 'Tất cả' : STATUS_LABEL[s] ?? s}
             </button>
           ))}
@@ -125,6 +157,9 @@ export default function AdminPage({ onLogout, onGoBooking }: { onLogout: () => v
             ))}
           </div>
         )}
+        {!loading && appointments.length > 0 && (
+          <Pagination page={apptPage} totalPages={apptTotalPages} total={apptTotal} onChange={setApptPage} />
+        )}
 
         <h2 className="text-lg font-semibold mt-10">Người dùng</h2>
         <div className="mt-4 space-y-3">
@@ -142,6 +177,9 @@ export default function AdminPage({ onLogout, onGoBooking }: { onLogout: () => v
             </div>
           ))}
         </div>
+        {!loading && users.length > 0 && (
+          <Pagination page={userPage} totalPages={userTotalPages} total={userTotal} onChange={setUserPage} />
+        )}
       </main>
     </div>
   )

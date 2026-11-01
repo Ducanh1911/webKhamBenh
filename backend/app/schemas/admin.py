@@ -34,6 +34,22 @@ class AdminUserOut(BaseModel):
     role: str
 
 
+class PaginatedAdminAppointmentsOut(BaseModel):
+    items: list[AdminAppointmentOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class PaginatedAdminUsersOut(BaseModel):
+    items: list[AdminUserOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 class AppointmentStatusUpdate(BaseModel):
     status: str
 
