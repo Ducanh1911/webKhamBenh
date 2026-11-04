@@ -63,11 +63,13 @@ export async function listSpecialties(): Promise<Specialty[]> {
   if (!res.ok) throw new Error('Không tải được danh sách chuyên khoa')
   return (await res.json()).specialties
 }
-export async function listDoctors(specialtyId?: number): Promise<Doctor[]> {
-  const q = specialtyId ? `?specialty_id=${specialtyId}` : ''
-  const res = await fetch(`${API}/api/v1/doctors${q}`)
+export type DoctorPage = { doctors: Doctor[]; total: number; page: number; page_size: number; total_pages: number }
+export async function listDoctors(specialtyId?: number, page = 1, pageSize = 6): Promise<DoctorPage> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+  if (specialtyId) params.set('specialty_id', String(specialtyId))
+  const res = await fetch(`${API}/api/v1/doctors?${params}`)
   if (!res.ok) throw new Error('Không tải được danh sách bác sĩ')
-  return (await res.json()).doctors
+  return res.json()
 }
 export type TriageResult = {
   specialty: { id: number; name: string } | null
@@ -88,8 +90,10 @@ export async function requestTriage(symptoms: string): Promise<TriageResult> {
   if (!res.ok) await handleError(res, 'Không gợi ý được bác sĩ, vui lòng thử lại')
   return res.json()
 }
-export async function listMyAppointments(): Promise<Appointment[]> {
-  const res = await fetch(`${API}/api/v1/appointments/mine`, { headers: authHeaders() })
+export type MyAppointmentsPage = { appointments: Appointment[]; total: number; page: number; page_size: number; total_pages: number }
+export async function listMyAppointments(page = 1, pageSize = 5): Promise<MyAppointmentsPage> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+  const res = await fetch(`${API}/api/v1/appointments/mine?${params}`, { headers: authHeaders() })
   if (!res.ok) await handleError(res, 'Không tải được lịch hẹn của bạn')
   return res.json()
 }

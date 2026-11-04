@@ -24,15 +24,29 @@ def _to_out(a: Appointment, db: Session) -> AppointmentOut:
         status=a.status.value if hasattr(a.status, "value") else str(a.status),
     )
 
-@router.get("/mine", response_model=list[AppointmentOut])
-def my_appointments(user: User = Depends(get_current_non_admin), db: Session = Depends(get_db)):
-    rows = (
+@router.get("/mine")
+def my_appointments(
+    page: int = 1,
+    page_size: int = 5,
+    user: User = Depends(get_current_non_admin),
+    db: Session = Depends(get_db),
+):
+    if page < 1:
+        raise HTTPException(status_code=400, detail="Trang phải từ 1 trở lên")
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(status_code=400, detail="Số dòng mỗi trang phải từ 1 đến 100")
+    query = (
         db.query(Appointment)
         .filter(Appointment.patient_id == user.id)
         .order_by(Appointment.start_at.desc())
-        .all()
     )
-    return [_to_out(a, db) for a in rows]
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    total_pages = (total + page_size - 1) // page_size if total else 0
+    return {
+        "appointments": [_to_out(a, db) for a in rows],
+        "total": total, "page": page, "page_size": page_size, "total_pages": total_pages,
+    }
 
 @router.post("", response_model=AppointmentOut, status_code=201)
 def create_appointment(payload: AppointmentCreate, user: User = Depends(get_current_non_admin), db: Session = Depends(get_db)):

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User
@@ -6,13 +6,26 @@ from app.models.doctor import Doctor, Specialty
 
 router = APIRouter()
 
+def _page_params(page: int, page_size: int) -> tuple[int, int]:
+    if page < 1:
+        raise HTTPException(status_code=400, detail="Trang phải từ 1 trở lên")
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(status_code=400, detail="Số dòng mỗi trang phải từ 1 đến 100")
+    return page, page_size
+
 @router.get("/specialties")
 def list_specialties(db: Session = Depends(get_db)):
     rows = db.query(Specialty).order_by(Specialty.name).all()
     return {"specialties": [{"id": s.id, "name": s.name, "description": s.description} for s in rows]}
 
 @router.get("")
-def list_doctors(specialty_id: int | None = None, db: Session = Depends(get_db)):
+def list_doctors(
+    specialty_id: int | None = None,
+    page: int = 1,
+    page_size: int = 6,
+    db: Session = Depends(get_db),
+):
+    page, page_size = _page_params(page, page_size)
     q = (
         db.query(Doctor, User, Specialty)
         .join(User, User.id == Doctor.user_id)
@@ -20,7 +33,9 @@ def list_doctors(specialty_id: int | None = None, db: Session = Depends(get_db))
     )
     if specialty_id:
         q = q.filter(Doctor.specialty_id == specialty_id)
-    rows = q.order_by(Doctor.id).all()
+    total = q.count()
+    rows = q.order_by(Doctor.id).offset((page - 1) * page_size).limit(page_size).all()
+    total_pages = (total + page_size - 1) // page_size if total else 0
     return {
         "doctors": [
             {
@@ -34,5 +49,6 @@ def list_doctors(specialty_id: int | None = None, db: Session = Depends(get_db))
                 "bio": d.bio,
             }
             for d, u, s in rows
-        ]
+        ],
+        "total": total, "page": page, "page_size": page_size, "total_pages": total_pages,
     }

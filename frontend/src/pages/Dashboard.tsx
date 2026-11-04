@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { listDoctors, listSpecialties, listMyAppointments, createAppointment, cancelAppointment, requestTriage, type Doctor, type Specialty, type Appointment, type TriageResult } from '../lib/api'
+import Pagination from '../components/Pagination'
 
 const PRIORITY_LABEL: Record<string, string> = {
   routine: 'Khám thường',
@@ -23,6 +24,12 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [specialtyId, setSpecialtyId] = useState<number | undefined>(undefined)
+  const [doctorPage, setDoctorPage] = useState(1)
+  const [doctorTotalPages, setDoctorTotalPages] = useState(0)
+  const [doctorTotal, setDoctorTotal] = useState(0)
+  const [apptPage, setApptPage] = useState(1)
+  const [apptTotalPages, setApptTotalPages] = useState(0)
+  const [apptTotal, setApptTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -54,18 +61,24 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
     setError('')
     try {
       const [specs, docs, appts] = await Promise.all([
-        listSpecialties(), listDoctors(specialtyId), listMyAppointments(),
+        listSpecialties(), listDoctors(specialtyId, doctorPage), listMyAppointments(apptPage),
       ])
       setSpecialties(specs)
-      setDoctors(docs)
-      setAppointments(appts)
+      setDoctors(docs.doctors)
+      setDoctorTotal(docs.total)
+      setDoctorTotalPages(docs.total_pages)
+      if (docs.total_pages > 0 && doctorPage > docs.total_pages) setDoctorPage(docs.total_pages)
+      setAppointments(appts.appointments)
+      setApptTotal(appts.total)
+      setApptTotalPages(appts.total_pages)
+      if (appts.total_pages > 0 && apptPage > appts.total_pages) setApptPage(appts.total_pages)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tải được dữ liệu, vui lòng thử lại.')
     } finally {
       setLoading(false)
     }
   }
-  useEffect(() => { load() }, [specialtyId])
+  useEffect(() => { load() }, [specialtyId, doctorPage, apptPage])
 
   async function submitBooking(e: React.FormEvent) {
     e.preventDefault()
@@ -79,7 +92,8 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
       setNotice(`Đã đặt lịch với ${bookingDoctor.name} lúc ${time} ngày ${new Date(date).toLocaleDateString('vi-VN')}.`)
       setBookingDoctor(null)
       setReason('')
-      await load()
+      if (apptPage !== 1) setApptPage(1)
+      else await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đặt lịch không thành công.')
     } finally {
@@ -145,7 +159,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                 </ul>
               )}
               {triage.specialty && triage.priority !== 'emergency' && (
-                <button type="button" onClick={() => setSpecialtyId(triage.specialty!.id)} className="mt-3 h-10 px-4 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium">Xem bác sĩ {triage.specialty.name}</button>
+                <button type="button" onClick={() => { setSpecialtyId(triage.specialty!.id); setDoctorPage(1) }} className="mt-3 h-10 px-4 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium">Xem bác sĩ {triage.specialty.name}</button>
               )}
               <p className="text-xs text-ink-500 mt-3">{triage.disclaimer}</p>
             </div>
@@ -153,9 +167,9 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
         </form>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          <button onClick={() => setSpecialtyId(undefined)} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${specialtyId === undefined ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>Tất cả chuyên khoa</button>
+          <button onClick={() => { setSpecialtyId(undefined); setDoctorPage(1) }} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${specialtyId === undefined ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>Tất cả chuyên khoa</button>
           {specialties.map(s => (
-            <button key={s.id} onClick={() => setSpecialtyId(s.id)} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${specialtyId === s.id ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>{s.name}</button>
+            <button key={s.id} onClick={() => { setSpecialtyId(s.id); setDoctorPage(1) }} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${specialtyId === s.id ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>{s.name}</button>
           ))}
         </div>
 
@@ -179,6 +193,9 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
               </div>
             ))}
           </div>
+        )}
+        {!loading && doctors.length > 0 && (
+          <Pagination page={doctorPage} totalPages={doctorTotalPages} total={doctorTotal} onChange={setDoctorPage} />
         )}
 
         {bookingDoctor && (
@@ -236,6 +253,9 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
               </div>
             ))}
           </div>
+        )}
+        {appointments.length > 0 && (
+          <Pagination page={apptPage} totalPages={apptTotalPages} total={apptTotal} onChange={setApptPage} />
         )}
       </main>
     </div>
