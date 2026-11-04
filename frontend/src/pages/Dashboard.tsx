@@ -24,6 +24,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [specialtyId, setSpecialtyId] = useState<number | undefined>(undefined)
+  const [view, setView] = useState<'booking' | 'mine'>('booking')
   const [doctorPage, setDoctorPage] = useState(1)
   const [doctorTotalPages, setDoctorTotalPages] = useState(0)
   const [doctorTotal, setDoctorTotal] = useState(0)
@@ -92,6 +93,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
       setNotice(`Đã đặt lịch với ${bookingDoctor.name} lúc ${time} ngày ${new Date(date).toLocaleDateString('vi-VN')}.`)
       setBookingDoctor(null)
       setReason('')
+      setView('mine')
       if (apptPage !== 1) setApptPage(1)
       else await load()
     } catch (err) {
@@ -133,12 +135,18 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Đặt lịch khám</h1>
-        <p className="text-ink-500 mt-1.5 text-[15px]">Tìm bác sĩ theo chuyên khoa, chọn khung giờ và đặt lịch trong vài phút.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{view === 'mine' ? 'Lịch hẹn của tôi' : 'Đặt lịch khám'}</h1>
+        <p className="text-ink-500 mt-1.5 text-[15px]">{view === 'mine' ? 'Toàn bộ lịch hẹn của bạn, tách biệt khỏi trang đặt lịch.' : 'Tìm bác sĩ theo chuyên khoa, chọn khung giờ và đặt lịch trong vài phút.'}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button onClick={() => setView('booking')} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${view === 'booking' ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>Đặt lịch khám</button>
+          <button onClick={() => setView('mine')} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${view === 'mine' ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>Lịch hẹn của tôi{apptTotal > 0 ? ` (${apptTotal})` : ''}</button>
+        </div>
 
         {notice && <p className="mt-5 rounded-lg bg-teal-50 border border-teal-100 text-teal-800 text-sm px-3.5 py-2.5">{notice}</p>}
         {error && <p className="mt-5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm px-3.5 py-2.5">{error}</p>}
 
+        {view === 'booking' && (
+        <>
         <form onSubmit={onTriage} className="mt-6 bg-white border border-slate-200 rounded-xl p-5 shadow-card">
           <label className="block">
             <span className="text-sm font-medium">Mô tả triệu chứng của bạn</span>
@@ -197,37 +205,14 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
         {!loading && doctors.length > 0 && (
           <Pagination page={doctorPage} totalPages={doctorTotalPages} total={doctorTotal} onChange={setDoctorPage} />
         )}
-
-        {bookingDoctor && (
-          <form onSubmit={submitBooking} className="mt-8 bg-white border border-slate-200 rounded-xl p-6 shadow-card max-w-xl">
-            <h2 className="font-semibold text-lg">Đặt lịch với {bookingDoctor.name}</h2>
-            <p className="text-sm text-ink-500 mt-1">{bookingDoctor.specialty_name} · {bookingDoctor.clinic_name} · {bookingDoctor.consultation_fee.toLocaleString('vi-VN')} đ</p>
-            <div className="grid grid-cols-2 gap-4 mt-5">
-              <label className="block">
-                <span className="text-sm font-medium">Ngày khám</span>
-                <input type="date" required value={date} min={new Date().toISOString().slice(0, 10)} onChange={e => setDate(e.target.value)} className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium">Giờ khám</span>
-                <select value={time} onChange={e => setTime(e.target.value)} className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5 bg-white">
-                  {['08:00','09:00','10:00','11:00','13:30','14:30','15:30','16:30'].map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </label>
-            </div>
-            <label className="block mt-4">
-              <span className="text-sm font-medium">Lý do khám <span className="text-ink-500 font-normal">(không bắt buộc)</span></span>
-              <input type="text" value={reason} onChange={e => setReason(e.target.value)} placeholder="Ví dụ: đau họng 2 ngày" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
-            </label>
-            <div className="flex gap-3 mt-5">
-              <button type="submit" disabled={booking} className="h-11 px-5 rounded-lg bg-brand-700 hover:bg-brand-800 disabled:opacity-60 text-white text-sm font-medium">{booking ? 'Đang đặt lịch…' : 'Xác nhận đặt lịch'}</button>
-              <button type="button" onClick={() => setBookingDoctor(null)} className="h-11 px-5 rounded-lg border border-slate-200 bg-white text-sm font-medium">Đóng</button>
-            </div>
-          </form>
+        </>
         )}
 
-        <h2 className="text-lg font-semibold mt-10">Lịch hẹn của tôi</h2>
+
+        {view === 'mine' && (
+        <>
         {appointments.length === 0 ? (
-          <p className="text-sm text-ink-500 mt-2">Bạn chưa có lịch hẹn nào. Hãy chọn một bác sĩ ở trên để đặt lịch.</p>
+          <p className="text-sm text-ink-500 mt-2">Bạn chưa có lịch hẹn nào. Hãy sang tab Đặt lịch khám để chọn bác sĩ.</p>
         ) : (
           <div className="mt-4 space-y-3">
             {appointments.map(a => (
@@ -257,7 +242,42 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
         {appointments.length > 0 && (
           <Pagination page={apptPage} totalPages={apptTotalPages} total={apptTotal} onChange={setApptPage} />
         )}
+        </>
+        )}
       </main>
+        {bookingDoctor && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setBookingDoctor(null)}>
+            <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white border border-slate-200 rounded-xl p-6 shadow-card" onClick={e => e.stopPropagation()}>
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="font-semibold text-lg">Đặt lịch với {bookingDoctor.name}</h2>
+                <button type="button" aria-label="Đóng" onClick={() => setBookingDoctor(null)} className="text-ink-500 hover:text-ink-900 text-xl leading-none px-2 py-1">×</button>
+              </div>
+              <form onSubmit={submitBooking}>
+              <p className="text-sm text-ink-500 mt-1 mb-1">{bookingDoctor.specialty_name} · {bookingDoctor.clinic_name} · {bookingDoctor.consultation_fee.toLocaleString('vi-VN')} đ</p>
+            <div className="grid grid-cols-2 gap-4 mt-5">
+              <label className="block">
+                <span className="text-sm font-medium">Ngày khám</span>
+                <input type="date" required value={date} min={new Date().toISOString().slice(0, 10)} onChange={e => setDate(e.target.value)} className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium">Giờ khám</span>
+                <select value={time} onChange={e => setTime(e.target.value)} className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5 bg-white">
+                  {['08:00','09:00','10:00','11:00','13:30','14:30','15:30','16:30'].map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
+            </div>
+            <label className="block mt-4">
+              <span className="text-sm font-medium">Lý do khám <span className="text-ink-500 font-normal">(không bắt buộc)</span></span>
+              <input type="text" value={reason} onChange={e => setReason(e.target.value)} placeholder="Ví dụ: đau họng 2 ngày" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
+            </label>
+            <div className="flex gap-3 mt-5">
+              <button type="submit" disabled={booking} className="h-11 px-5 rounded-lg bg-brand-700 hover:bg-brand-800 disabled:opacity-60 text-white text-sm font-medium">{booking ? 'Đang đặt lịch…' : 'Xác nhận đặt lịch'}</button>
+              <button type="button" onClick={() => setBookingDoctor(null)} className="h-11 px-5 rounded-lg border border-slate-200 bg-white text-sm font-medium">Đóng</button>
+            </div>
+          </form>
+            </div>
+          </div>
+        )}
     </div>
   )
 }
