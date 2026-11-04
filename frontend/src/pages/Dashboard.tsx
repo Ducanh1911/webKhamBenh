@@ -18,7 +18,7 @@ function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-export default function Dashboard({ onLogout, isAdmin, onGoAdmin }: { onLogout: () => void; isAdmin?: boolean; onGoAdmin?: () => void }) {
+export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [specialties, setSpecialties] = useState<Specialty[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -113,7 +113,6 @@ export default function Dashboard({ onLogout, isAdmin, onGoAdmin }: { onLogout: 
             <span className="font-semibold text-lg tracking-tight">MediBook <span className="text-brand-700">AI</span></span>
           </div>
           <div className="flex gap-2">
-            {isAdmin && <button onClick={onGoAdmin} className="text-sm font-medium text-white bg-brand-700 hover:bg-brand-800 rounded-lg px-3.5 py-2">Quản trị</button>}
             <button onClick={onLogout} className="text-sm font-medium text-ink-500 hover:text-ink-900 border border-slate-200 rounded-lg px-3.5 py-2 bg-white">Đăng xuất</button>
           </div>
         </div>

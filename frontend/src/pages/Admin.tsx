@@ -34,7 +34,7 @@ function Pagination({ page, totalPages, total, onChange }: { page: number; total
   )
 }
 
-export default function AdminPage({ onLogout, onGoBooking }: { onLogout: () => void; onGoBooking: () => void }) {
+export default function AdminPage({ onLogout }: { onLogout: () => void }) {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [appointments, setAppointments] = useState<AdminAppointment[]>([])
   const [users, setUsers] = useState<AdminUser[]>([])
@@ -106,7 +106,6 @@ export default function AdminPage({ onLogout, onGoBooking }: { onLogout: () => v
             <span className="font-semibold text-lg tracking-tight">MediBook <span className="text-brand-700">AI</span> · Quản trị</span>
           </div>
           <div className="flex gap-2">
-            <button onClick={onGoBooking} className="text-sm font-medium text-ink-500 hover:text-ink-900 border border-slate-200 rounded-lg px-3.5 py-2 bg-white">Về đặt lịch</button>
             <button onClick={onLogout} className="text-sm font-medium text-ink-500 hover:text-ink-900 border border-slate-200 rounded-lg px-3.5 py-2 bg-white">Đăng xuất</button>
           </div>
         </div>

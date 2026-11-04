@@ -9,25 +9,32 @@ export default function App() {
   const [authed, setAuthed] = useState(!!getToken())
   const [view, setView] = useState<'login' | 'register'>('login')
   const [me, setMe] = useState<Me | null>(null)
-  const [page, setPage] = useState<'booking' | 'admin'>('booking')
+  const [meLoading, setMeLoading] = useState(false)
 
   useEffect(() => {
-    if (!authed) { setMe(null); setPage('booking'); return }
-    getMe().then(setMe).catch(() => setMe(null))
+    if (!authed) { setMe(null); setMeLoading(false); return }
+    setMeLoading(true)
+    getMe().then(setMe).catch(() => setMe(null)).finally(() => setMeLoading(false))
   }, [authed])
 
   function logout() {
     clearToken()
     setAuthed(false)
     setMe(null)
-    setPage('booking')
+    setMeLoading(false)
   }
 
   if (authed) {
-    if (page === 'admin' && me?.role === 'admin') {
-      return <AdminPage onLogout={logout} onGoBooking={() => setPage('booking')} />
+    // Tách biệt hoàn toàn: admin chỉ vào trang Quản trị, không vào được
+    // trang đặt lịch, kể cả lúc đang tải thông tin tài khoản cũng không
+    // hiện Dashboard thoáng qua.
+    if (meLoading) {
+      return <div className="min-h-screen flex items-center justify-center text-ink-500 text-sm">Đang tải…</div>
     }
-    return <Dashboard onLogout={logout} isAdmin={me?.role === 'admin'} onGoAdmin={() => setPage('admin')} />
+    if (me?.role === 'admin') {
+      return <AdminPage onLogout={logout} />
+    }
+    return <Dashboard onLogout={logout} />
   }
   if (view === 'register') return <RegisterPage onSuccess={() => setAuthed(true)} onGoLogin={() => setView('login')} />
   return <LoginPage onSuccess={() => setAuthed(true)} onGoRegister={() => setView('register')} />

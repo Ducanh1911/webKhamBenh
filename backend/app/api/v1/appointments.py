@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_non_admin
 from app.models.user import User
 from app.models.doctor import Doctor, Specialty
 from app.models.appointment import Appointment, AppointmentStatus
@@ -25,7 +25,7 @@ def _to_out(a: Appointment, db: Session) -> AppointmentOut:
     )
 
 @router.get("/mine", response_model=list[AppointmentOut])
-def my_appointments(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def my_appointments(user: User = Depends(get_current_non_admin), db: Session = Depends(get_db)):
     rows = (
         db.query(Appointment)
         .filter(Appointment.patient_id == user.id)
@@ -35,7 +35,7 @@ def my_appointments(user: User = Depends(get_current_user), db: Session = Depend
     return [_to_out(a, db) for a in rows]
 
 @router.post("", response_model=AppointmentOut, status_code=201)
-def create_appointment(payload: AppointmentCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_appointment(payload: AppointmentCreate, user: User = Depends(get_current_non_admin), db: Session = Depends(get_db)):
     doctor = db.query(Doctor).filter(Doctor.id == payload.doctor_id).first()
     if not doctor:
         raise HTTPException(status_code=404, detail="Không tìm thấy bác sĩ")
@@ -61,7 +61,7 @@ def create_appointment(payload: AppointmentCreate, user: User = Depends(get_curr
     return _to_out(appt, db)
 
 @router.post("/{appointment_id}/cancel", response_model=AppointmentOut)
-def cancel_appointment(appointment_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def cancel_appointment(appointment_id: int, user: User = Depends(get_current_non_admin), db: Session = Depends(get_db)):
     appt = db.query(Appointment).filter(Appointment.id == appointment_id, Appointment.patient_id == user.id).first()
     if not appt:
         raise HTTPException(status_code=404, detail="Không tìm thấy lịch hẹn")

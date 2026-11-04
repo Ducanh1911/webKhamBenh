@@ -30,3 +30,14 @@ def get_current_admin(user: User = Depends(get_current_user)) -> User:
     if user.role != UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cần quyền quản trị")
     return user
+
+
+def get_current_non_admin(user: User = Depends(get_current_user)) -> User:
+    """Tách biệt quản trị và bệnh nhân: admin không dùng luồng đặt lịch của bệnh nhân -> 403.
+
+    Admin chỉ quản lý lịch qua API /admin, nên các endpoint đặt/xem/hủy lịch
+    của chính mình đều chặn admin ở đây, không chỉ ẩn nút ở frontend.
+    """
+    if user.role == UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tài khoản quản trị chỉ dùng trang Quản trị")
+    return user
