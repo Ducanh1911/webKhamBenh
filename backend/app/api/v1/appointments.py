@@ -5,23 +5,36 @@ from app.core.deps import get_current_non_admin
 from app.models.user import User
 from app.models.doctor import Doctor, Specialty
 from app.models.appointment import Appointment, AppointmentStatus
+from app.models.payment import Payment
 from app.schemas.appointment import AppointmentCreate, AppointmentOut
 
 router = APIRouter()
 
 def _to_out(a: Appointment, db: Session) -> AppointmentOut:
     d = db.query(Doctor).filter(Doctor.id == a.doctor_id).first()
-    name, spec, clinic = "", "", ""
+    name, spec, clinic, fee = "", "", "", 0
     if d:
         u = db.query(User).filter(User.id == d.user_id).first()
         s = db.query(Specialty).filter(Specialty.id == d.specialty_id).first()
         name = u.full_name if u else ""
         spec = s.name if s else ""
         clinic = d.clinic_name
+        fee = d.consultation_fee
+    latest_payment = (
+        db.query(Payment)
+        .filter(Payment.appointment_id == a.id)
+        .order_by(Payment.id.desc())
+        .first()
+    )
+    payment_status = (
+        latest_payment.status.value if latest_payment else "unpaid"
+    )
     return AppointmentOut(
         id=a.id, doctor_id=a.doctor_id, doctor_name=name, specialty_name=spec,
         clinic_name=clinic, start_at=a.start_at, reason=a.reason,
         status=a.status.value if hasattr(a.status, "value") else str(a.status),
+        consultation_fee=fee, payment_status=payment_status,
+        payment_id=latest_payment.id if latest_payment else None,
     )
 
 @router.get("/mine")

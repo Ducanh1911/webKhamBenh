@@ -18,5 +18,15 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         sync: false
+      - key: BACKEND_URL
+        value: https://medibook-ai-api.onrender.com
       - key: OPENAI_API_KEY
+        sync: false
+      - key: MOMO_PARTNER_CODE
+        sync: false
+      - key: MOMO_ACCESS_KEY
+        sync: false
+      - key: MOMO_SECRET_KEY
+        sync: false
+      - key: MOMO_IPN_URL
         sync: false

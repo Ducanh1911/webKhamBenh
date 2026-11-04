@@ -15,3 +15,7 @@ class AppointmentOut(BaseModel):
     start_at: datetime
     reason: str | None = None
     status: str
+    consultation_fee: int = 0
+    # Trạng thái thanh toán mới nhất: unpaid | pending | success | failed
+    payment_status: str = "unpaid"
+    payment_id: int | None = None

@@ -55,7 +55,26 @@ export type Doctor = {
 }
 export type Appointment = {
   id: number; doctor_id: number; doctor_name: string; specialty_name: string;
-  clinic_name: string; start_at: string; reason?: string | null; status: string
+  clinic_name: string; start_at: string; reason?: string | null; status: string;
+  consultation_fee: number; payment_status: string; payment_id?: number | null
+}
+export type Payment = {
+  id: number; appointment_id: number; order_id: string; amount: number;
+  status: string; pay_url?: string | null; trans_id?: number | null; result_code?: number | null
+}
+export async function createPayment(appointmentId: number): Promise<Payment> {
+  const res = await fetch(`${API}/api/v1/appointments/${appointmentId}/payments`, {
+    method: 'POST', headers: authHeaders(),
+  })
+  if (!res.ok) await handleError(res, 'Không tạo được đơn thanh toán MoMo')
+  return res.json()
+}
+export async function checkPayment(paymentId: number): Promise<Payment> {
+  const res = await fetch(`${API}/api/v1/payments/${paymentId}/check`, {
+    method: 'POST', headers: authHeaders(),
+  })
+  if (!res.ok) await handleError(res, 'Không kiểm tra được thanh toán')
+  return res.json()
 }
 
 export async function listSpecialties(): Promise<Specialty[]> {

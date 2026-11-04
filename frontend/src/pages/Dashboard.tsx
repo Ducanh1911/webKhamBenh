@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listDoctors, listSpecialties, listMyAppointments, createAppointment, cancelAppointment, requestTriage, type Doctor, type Specialty, type Appointment, type TriageResult } from '../lib/api'
+import { listDoctors, listSpecialties, listMyAppointments, createAppointment, cancelAppointment, requestTriage, createPayment, checkPayment, type Doctor, type Specialty, type Appointment, type TriageResult } from '../lib/api'
 import Pagination from '../components/Pagination'
 
 const PRIORITY_LABEL: Record<string, string> = {
@@ -14,6 +14,10 @@ const STATUS_LABEL: Record<string, string> = {
   COMPLETED: 'Đã khám xong', completed: 'Đã khám xong',
   CANCELLED: 'Đã hủy', cancelled: 'Đã hủy',
   NO_SHOW: 'Không đến khám', no_show: 'Không đến khám',
+}
+const PAYMENT_LABEL: Record<string, string> = {
+  unpaid: 'Chưa thanh toán', pending: 'Chờ thanh toán MoMo',
+  success: 'Đã thanh toán', failed: 'Thanh toán thất bại',
 }
 function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -105,6 +109,78 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const [confirmCancelId, setConfirmCancelId] = useState<number | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [payingId, setPayingId] = useState<number | null>(null)
+  const [checkingId, setCheckingId] = useState<number | null>(null)
+
+  async function onPay(a: Appointment) {
+    setPayingId(a.id)
+    setError('')
+    try {
+      const payment = await createPayment(a.id)
+      if (payment.pay_url) {
+        // Sang trang MoMo sandbox; MoMo trả về bằng redirect + IPN.
+        window.location.href = payment.pay_url
+      } else {
+        setError('MoMo chưa trả về đường dẫn thanh toán.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không tạo được đơn thanh toán MoMo.')
+    } finally {
+      setPayingId(null)
+    }
+  }
+
+  async function onCheckPayment(a: Appointment, silent = false) {
+    if (!a.payment_id) return
+    setCheckingId(a.id)
+    try {
+      const payment = await checkPayment(a.payment_id)
+      await load()
+      if (!silent) {
+        setNotice(payment.status === 'success'
+          ? 'Thanh toán MoMo thành công — lịch hẹn đã chuyển sang Đã xác nhận.'
+          : 'MoMo chưa ghi nhận thanh toán thành công, lịch vẫn đang chờ xác nhận.')
+      }
+      return payment
+    } catch (err) {
+      if (!silent) setError(err instanceof Error ? err.message : 'Không kiểm tra được thanh toán.')
+      return null
+    } finally {
+      setCheckingId(null)
+    }
+  }
+
+  // Khi trở về từ MoMo: không tin vào query string trên URL, mà hỏi lại
+  // backend để backend kiểm tra trực tiếp với MoMo rồi mới đổi trạng thái.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('payment_return') !== '1') return
+    const appointmentId = Number(params.get('appointment_id'))
+    const momoResult = params.get('resultCode')
+    window.history.replaceState({}, '', window.location.pathname)
+    if (!appointmentId) return
+    ;(async () => {
+      try {
+        const page = await listMyAppointments(1, 100)
+        const appt = page.appointments.find(x => x.id === appointmentId)
+        if (appt?.payment_id) {
+          const payment = await onCheckPayment(appt, true)
+          if (payment?.status === 'success') {
+            setNotice('Thanh toán MoMo thành công — lịch hẹn đã chuyển sang Đã xác nhận.')
+          } else if (momoResult !== null && momoResult !== '0') {
+            setNotice(`Thanh toán MoMo chưa thành công (mã MoMo: ${momoResult}), lịch vẫn đang chờ xác nhận.`)
+          } else {
+            setNotice('Đang chờ MoMo xác nhận thanh toán, lịch vẫn đang chờ xác nhận. Bấm “Kiểm tra thanh toán” để cập nhật lại.')
+          }
+        }
+        setView('mine')
+        await load()
+      } catch {
+        setView('mine')
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function onCancel(id: number) {
     setCancelling(true)
@@ -220,9 +296,16 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                 <div>
                   <p className="font-medium">{a.doctor_name} · {a.specialty_name}</p>
                   <p className="text-sm text-ink-500 mt-1">{fmtDateTime(a.start_at)} · {a.clinic_name}{a.reason ? ` · ${a.reason}` : ''}</p>
+                  <p className="text-sm text-ink-500 mt-1">{a.consultation_fee.toLocaleString('vi-VN')} đ · {PAYMENT_LABEL[a.payment_status] ?? a.payment_status}</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-sm font-medium text-brand-700">{STATUS_LABEL[a.status] ?? a.status}</span>
+                  {(a.status === 'PENDING' || a.status === 'pending') && (a.payment_status === 'unpaid' || a.payment_status === 'failed') && (
+                    <button onClick={() => onPay(a)} disabled={payingId === a.id} className="text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 disabled:opacity-60 rounded-lg px-3 py-2">Thanh toán bằng MoMo</button>
+                  )}
+                  {(a.status === 'PENDING' || a.status === 'pending') && a.payment_status === 'pending' && a.payment_id && (
+                    <button onClick={() => onCheckPayment(a)} disabled={checkingId === a.id} className="text-sm font-medium text-ink-700 border border-slate-200 rounded-lg px-3 py-2 bg-white">Kiểm tra thanh toán</button>
+                  )}
                   {(a.status === 'PENDING' || a.status === 'pending' || a.status === 'CONFIRMED' || a.status === 'confirmed') && (
                     confirmCancelId === a.id ? (
                       <span className="flex items-center gap-2">
