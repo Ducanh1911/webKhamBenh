@@ -127,7 +127,7 @@ export async function listAdminStats(): Promise<AdminStats> {
   return res.json()
 }
 export type Paginated<T> = { items: T[]; total: number; page: number; page_size: number; total_pages: number }
-export async function listAdminAppointments(status?: string, page = 1, pageSize = 10): Promise<Paginated<AdminAppointment>> {
+export async function listAdminAppointments(status?: string, page = 1, pageSize = 6): Promise<Paginated<AdminAppointment>> {
   const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
   if (status) params.set('status', status)
   const res = await fetch(`${API}/api/v1/admin/appointments?${params}`, { headers: authHeaders() })
@@ -142,7 +142,7 @@ export async function updateAdminAppointmentStatus(id: number, status: string): 
   if (!res.ok) await handleError(res, 'Đổi trạng thái lịch hẹn không thành công')
   return res.json()
 }
-export async function listAdminUsers(page = 1, pageSize = 10): Promise<Paginated<AdminUser>> {
+export async function listAdminUsers(page = 1, pageSize = 6): Promise<Paginated<AdminUser>> {
   const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
   const res = await fetch(`${API}/api/v1/admin/users?${params}`, { headers: authHeaders() })
   if (!res.ok) await handleError(res, 'Không tải được danh sách người dùng')

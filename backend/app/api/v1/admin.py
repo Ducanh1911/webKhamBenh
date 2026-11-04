@@ -90,7 +90,7 @@ def _page_params(page: int, page_size: int) -> tuple[int, int]:
 def list_appointments(
     status: str | None = None,
     page: int = 1,
-    page_size: int = 10,
+    page_size: int = 6,
     admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -137,7 +137,7 @@ def update_appointment_status(
 @router.get("/users", response_model=PaginatedAdminUsersOut)
 def list_users(
     page: int = 1,
-    page_size: int = 10,
+    page_size: int = 6,
     admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):

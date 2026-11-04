@@ -11,22 +11,29 @@ const STATUS_LABEL: Record<string, string> = {
 }
 const ROLE_LABEL: Record<string, string> = { patient: 'Bệnh nhân', doctor: 'Bác sĩ', admin: 'Quản trị' }
 
+const PAGE_SIZE = 6
+type Tab = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'users'
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'all', label: 'Tất cả' },
+  { id: 'pending', label: 'Chờ xác nhận' },
+  { id: 'confirmed', label: 'Đã xác nhận' },
+  { id: 'completed', label: 'Đã khám xong' },
+  { id: 'cancelled', label: 'Đã hủy' },
+  { id: 'users', label: 'Người dùng' },
+]
+
 function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
-
 
 export default function AdminPage({ onLogout }: { onLogout: () => void }) {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [appointments, setAppointments] = useState<AdminAppointment[]>([])
   const [users, setUsers] = useState<AdminUser[]>([])
-  const [statusFilter, setStatusFilter] = useState<string>('')
-  const [apptPage, setApptPage] = useState(1)
-  const [apptTotalPages, setApptTotalPages] = useState(0)
-  const [apptTotal, setApptTotal] = useState(0)
-  const [userPage, setUserPage] = useState(1)
-  const [userTotalPages, setUserTotalPages] = useState(0)
-  const [userTotal, setUserTotal] = useState(0)
+  const [tab, setTab] = useState<Tab>('all')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -35,25 +42,37 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
     setLoading(true)
     setError('')
     try {
-      const [s, a, u] = await Promise.all([
-        listAdminStats(), listAdminAppointments(statusFilter || undefined, apptPage), listAdminUsers(userPage),
-      ])
+      const s = await listAdminStats()
       setStats(s)
-      setAppointments(a.items)
-      setApptTotal(a.total)
-      setApptTotalPages(a.total_pages)
-      if (a.total_pages > 0 && apptPage > a.total_pages) setApptPage(a.total_pages)
-      setUsers(u.items)
-      setUserTotal(u.total)
-      setUserTotalPages(u.total_pages)
-      if (u.total_pages > 0 && userPage > u.total_pages) setUserPage(u.total_pages)
+      if (tab === 'users') {
+        // Tab Người dùng tách biệt hoàn toàn: chỉ tải và chỉ hiện người dùng,
+        // không lẫn với bất kỳ tab lịch hẹn nào.
+        const u = await listAdminUsers(page, PAGE_SIZE)
+        setUsers(u.items)
+        setAppointments([])
+        setTotal(u.total)
+        setTotalPages(u.total_pages)
+        if (u.total_pages > 0 && page > u.total_pages) setPage(u.total_pages)
+      } else {
+        const a = await listAdminAppointments(tab === 'all' ? undefined : tab, page, PAGE_SIZE)
+        setAppointments(a.items)
+        setUsers([])
+        setTotal(a.total)
+        setTotalPages(a.total_pages)
+        if (a.total_pages > 0 && page > a.total_pages) setPage(a.total_pages)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tải được dữ liệu quản trị.')
     } finally {
       setLoading(false)
     }
   }
-  useEffect(() => { load() }, [statusFilter, apptPage, userPage])
+  useEffect(() => { load() }, [tab, page])
+
+  function switchTab(t: Tab) {
+    setTab(t)
+    setPage(1)
+  }
 
   async function changeStatus(id: number, status: string) {
     setError('')
@@ -110,56 +129,64 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
 
-        <h2 className="text-lg font-semibold mt-10">Tất cả lịch hẹn</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {['', 'pending', 'confirmed', 'completed', 'cancelled'].map(s => (
-            <button key={s || 'all'} onClick={() => { setStatusFilter(s); setApptPage(1) }} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${statusFilter === s ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>
-              {s === '' ? 'Tất cả' : STATUS_LABEL[s] ?? s}
+        <div className="mt-10 flex flex-wrap gap-2">
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => switchTab(t.id)} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${tab === t.id ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>
+              {t.label}
             </button>
           ))}
         </div>
-        {loading ? <p className="mt-4 text-ink-500 text-sm">Đang tải…</p> : appointments.length === 0 ? (
-          <p className="text-sm text-ink-500 mt-3">Chưa có lịch hẹn nào.</p>
-        ) : (
-          <div className="mt-4 space-y-3">
-            {appointments.map(a => (
-              <div key={a.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="font-medium">{a.patient_name} · {a.doctor_name} ({a.specialty_name})</p>
-                  <p className="text-sm text-ink-500 mt-1">{fmtDateTime(a.start_at)} · {a.clinic_name}{a.reason ? ` · ${a.reason}` : ''} · {a.patient_email}</p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-brand-700">{STATUS_LABEL[a.status] ?? a.status}</span>
-                  {a.status === 'pending' && <button onClick={() => changeStatus(a.id, 'confirmed')} className="text-sm font-medium text-white bg-brand-700 hover:bg-brand-800 rounded-lg px-3 py-2">Xác nhận</button>}
-                  {(a.status === 'pending' || a.status === 'confirmed') && <button onClick={() => changeStatus(a.id, 'cancelled')} className="text-sm font-medium text-red-600 border border-red-200 rounded-lg px-3 py-2 bg-white">Hủy lịch</button>}
-                  {a.status === 'confirmed' && <button onClick={() => changeStatus(a.id, 'completed')} className="text-sm font-medium text-teal-700 border border-teal-200 rounded-lg px-3 py-2 bg-white">Đã khám xong</button>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {!loading && appointments.length > 0 && (
-          <Pagination page={apptPage} totalPages={apptTotalPages} total={apptTotal} onChange={setApptPage} />
-        )}
 
-        <h2 className="text-lg font-semibold mt-10">Người dùng</h2>
-        <div className="mt-4 space-y-3">
-          {users.map(u => (
-            <div key={u.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="font-medium">{u.full_name}</p>
-                <p className="text-sm text-ink-500 mt-1">{u.email}{u.phone ? ` · ${u.phone}` : ''}</p>
+        {tab === 'users' ? (
+          <>
+            <h2 className="text-lg font-semibold mt-6">Người dùng</h2>
+            {loading ? <p className="mt-4 text-ink-500 text-sm">Đang tải…</p> : users.length === 0 ? (
+              <p className="text-sm text-ink-500 mt-3">Chưa có người dùng nào.</p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {users.map(u => (
+                  <div key={u.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="font-medium">{u.full_name}</p>
+                      <p className="text-sm text-ink-500 mt-1">{u.email}{u.phone ? ` · ${u.phone}` : ''}</p>
+                    </div>
+                    <select value={u.role} onChange={e => changeRole(u.id, e.target.value)} className="h-10 rounded-lg border border-slate-300 px-3 bg-white text-sm font-medium">
+                      <option value="patient">{ROLE_LABEL.patient}</option>
+                      <option value="doctor">{ROLE_LABEL.doctor}</option>
+                      <option value="admin">{ROLE_LABEL.admin}</option>
+                    </select>
+                  </div>
+                ))}
               </div>
-              <select value={u.role} onChange={e => changeRole(u.id, e.target.value)} className="h-10 rounded-lg border border-slate-300 px-3 bg-white text-sm font-medium">
-                <option value="patient">{ROLE_LABEL.patient}</option>
-                <option value="doctor">{ROLE_LABEL.doctor}</option>
-                <option value="admin">{ROLE_LABEL.admin}</option>
-              </select>
-            </div>
-          ))}
-        </div>
-        {!loading && users.length > 0 && (
-          <Pagination page={userPage} totalPages={userTotalPages} total={userTotal} onChange={setUserPage} />
+            )}
+          </>
+        ) : (
+          <>
+            <h2 className="text-lg font-semibold mt-6">{tab === 'all' ? 'Tất cả lịch hẹn' : `Lịch hẹn · ${STATUS_LABEL[tab] ?? tab}`}</h2>
+            {loading ? <p className="mt-4 text-ink-500 text-sm">Đang tải…</p> : appointments.length === 0 ? (
+              <p className="text-sm text-ink-500 mt-3">Chưa có lịch hẹn nào trong tab này.</p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {appointments.map(a => (
+                  <div key={a.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="font-medium">{a.patient_name} · {a.doctor_name} ({a.specialty_name})</p>
+                      <p className="text-sm text-ink-500 mt-1">{fmtDateTime(a.start_at)} · {a.clinic_name}{a.reason ? ` · ${a.reason}` : ''} · {a.patient_email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-brand-700">{STATUS_LABEL[a.status] ?? a.status}</span>
+                      {a.status === 'pending' && <button onClick={() => changeStatus(a.id, 'confirmed')} className="text-sm font-medium text-white bg-brand-700 hover:bg-brand-800 rounded-lg px-3 py-2">Xác nhận</button>}
+                      {(a.status === 'pending' || a.status === 'confirmed') && <button onClick={() => changeStatus(a.id, 'cancelled')} className="text-sm font-medium text-red-600 border border-red-200 rounded-lg px-3 py-2 bg-white">Hủy lịch</button>}
+                      {a.status === 'confirmed' && <button onClick={() => changeStatus(a.id, 'completed')} className="text-sm font-medium text-teal-700 border border-teal-200 rounded-lg px-3 py-2 bg-white">Đã khám xong</button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        {!loading && total > 0 && (
+          <Pagination page={page} totalPages={totalPages} total={total} onChange={setPage} />
         )}
       </main>
     </div>
