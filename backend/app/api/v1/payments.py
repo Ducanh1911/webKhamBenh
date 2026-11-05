@@ -132,6 +132,15 @@ def create_appointment_payment(
             ipn_url=ipn_url,
             extra_data=extra_data,
         )
+    except momo.MoMoHttpError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"MoMo sandbox trả HTTP {e.status_code} — có thể máy chủ Render bị MoMo chặn, vui lòng thử lại sau",
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=502, detail="MoMo sandbox phản hồi quá chậm (hết 60 giây), vui lòng thử lại"
+        )
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="Không kết nối được tới MoMo sandbox")
     if result.get("resultCode") != 0 or not result.get("payUrl"):
@@ -177,6 +186,10 @@ def check_payment(
         return _out(payment)
     try:
         result = momo.query_payment(payment.order_id, payment.request_id)
+    except momo.MoMoHttpError as e:
+        raise HTTPException(
+            status_code=502, detail=f"MoMo sandbox trả HTTP {e.status_code}"
+        )
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="Không kết nối được tới MoMo sandbox")
     result_code = result.get("resultCode")

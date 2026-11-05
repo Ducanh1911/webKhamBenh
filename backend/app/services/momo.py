@@ -112,6 +112,32 @@ def configured() -> bool:
     )
 
 
+# MoMo sandbox chặn cả developers.momo.vn lẫn test-payment.momo.vn
+# bằng 403 nginx với các request server-side (kể cả khi gửi đủ header
+# trình duyệt), nên lỗi HTTP phải được báo rõ mã trạng thái thay vì
+# gộp chung thành "không kết nối được". Timeout 60s vì MoMo yêu cầu
+# tối thiểu 30s và sandbox thỉnh thoảng phản hồi rất chậm.
+_MOMO_HEADERS = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+}
+
+
+class MoMoHttpError(Exception):
+    def __init__(self, status_code: int):
+        super().__init__(f"MoMo sandbox trả HTTP {status_code}")
+        self.status_code = status_code
+
+
+def _post(url: str, payload: dict) -> dict:
+    with httpx.Client(timeout=60.0, headers=_MOMO_HEADERS) as client:
+        res = client.post(url, json=payload)
+        if res.status_code != 200:
+            raise MoMoHttpError(res.status_code)
+        return res.json()
+
+
 def create_payment(
     order_id: str,
     request_id: str,
@@ -138,10 +164,7 @@ def create_payment(
             amount, extra_data, ipn_url, order_id, order_info, redirect_url, request_id
         ),
     }
-    with httpx.Client(timeout=30.0) as client:
-        res = client.post(settings.MOMO_CREATE_URL, json=payload)
-        res.raise_for_status()
-        return res.json()
+    return _post(settings.MOMO_CREATE_URL, payload)
 
 
 def query_payment(order_id: str, request_id: str) -> dict:
@@ -152,7 +175,4 @@ def query_payment(order_id: str, request_id: str) -> dict:
         "lang": "vi",
         "signature": query_signature(order_id, request_id),
     }
-    with httpx.Client(timeout=30.0) as client:
-        res = client.post(settings.MOMO_QUERY_URL, json=payload)
-        res.raise_for_status()
-        return res.json()
+    return _post(settings.MOMO_QUERY_URL, payload)
