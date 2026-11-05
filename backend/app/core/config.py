@@ -6,7 +6,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     FRONTEND_URL: str = "http://localhost:5173"
-    BACKEND_URL: str = ""
+    # URL public của backend, dùng để MoMo gửi IPN về. Render không tự
+    # áp dụng biến môi trường mới trong render.yaml cho service đã tạo
+    # từ trước, nên để mặc định là URL live thay vì "" — nếu backend
+    # deploy ở nơi khác thì ghi đè bằng biến môi trường BACKEND_URL.
+    BACKEND_URL: str = "https://medibook-ai-api.onrender.com"
     OPENAI_API_KEY: str = ""
     # MoMo sandbox: cấu hình bằng biến môi trường trên Render, không
     # commit key vào repo. Chưa cấu hình thì endpoint thanh toán trả 503.

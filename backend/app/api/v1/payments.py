@@ -69,9 +69,8 @@ def _apply_failure(db: Session, payment: Payment, result_code: int):
 def _ipn_url() -> str:
     if settings.MOMO_IPN_URL:
         return settings.MOMO_IPN_URL
-    if settings.BACKEND_URL:
-        return f"{settings.BACKEND_URL.rstrip('/')}/api/v1/payments/ipn"
-    return ""
+    backend = settings.BACKEND_URL or "https://medibook-ai-api.onrender.com"
+    return f"{backend.rstrip('/')}/api/v1/payments/ipn"
 
 
 @router.post("/appointments/{appointment_id}/payments", response_model=PaymentOut, status_code=201)
