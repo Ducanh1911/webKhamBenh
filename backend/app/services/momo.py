@@ -158,6 +158,9 @@ def create_payment(
         "redirectUrl": redirect_url,
         "ipnUrl": ipn_url,
         "requestType": "captureWallet",
+        # autoCapture=true: MoMo thu tiền ngay khi người dùng xác nhận,
+        # theo mẫu trong BaiTap/Service/MomoService.cs (repo web_ban_hang).
+        "autoCapture": True,
         "extraData": extra_data,
         "lang": "vi",
         "signature": create_signature(
