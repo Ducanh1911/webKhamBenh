@@ -88,17 +88,47 @@ EMERGENCY_KEYWORDS = [
     "dau bung du doi",
     "bat tinh",
     "hon me",
+    "ngung tho",
+    "tho gap",
+    "dau dau du doi",
+    "sot cao co giat",
+    "tieu ra mau",
+    "di ngoai ra mau",
+    "non lien tuc",
+    "mat nuoc",
+    "ngat xiu",
+    "tim ngung dap",
+    "dau bung cap",
 ]
 
 # (từ khóa đã bỏ dấu, chuyên khoa id). Thứ tự trong list là thứ tự ưu tiên
 # khi một câu khớp nhiều nhóm; Nhi khoa được xử lý riêng trước (xem dưới).
 KEYWORD_RULES = [
-    (["dau rang", "sung loi", "sau rang", "chay mau chan rang"], 3),
-    (["dau nguc", "hoi hop", "tim dap nhanh", "huyet ap cao", "dau tim"], 4),
-    (["noi man", "man ngua", "nam da", "rung toc"], 5),
-    (["mo mat", "dau mat", "do mat", "chay nuoc mat", "mat mo"], 6),
+    (["dau rang", "sung loi", "sau rang", "chay mau chan rang", "viem loi",
+      "loet mieng", "nhiet mieng", "dau rang khon", "rang khon", "viem tuy",
+      "rang lung lay", "ap xe", "dau ham", "hoi mieng", "chay mau rang",
+      "viem quanh rang"], 3),
+    (["dau nguc", "hoi hop", "tim dap nhanh", "huyet ap cao", "dau tim",
+      "tim dap cham", "tim dap khong deu", "huyet ap thap", "chong mat",
+      "ngat", "phu chan", "tim dap manh",
+      "ho ve dem", "tuc nguc", "cao huyet ap", "huyet ap"], 4),
+    (["noi man", "man ngua", "nam da", "rung toc", "di ung da", "viem da",
+      "mun boc", "mun mu", "mun trung ca", "mun nhot", "noi mun", "man do",
+      "di ung", "da kho", "da bong troc", "viem nang long", "nam mong",
+      "lang ben", "bong nuoc", "phong rop", "dom do", "ngua da dau",
+      "nut ne da"], 5),
+    (["mo mat", "dau mat", "do mat", "chay nuoc mat", "mat mo", "can thi",
+      "vien thi", "loan thi", "nhin mo", "nhuc mat", "cay mat", "ngua mat",
+      "sup mi", "mat sung", "viem ket mac", "mat kho", "chay ghen mat",
+      "mat nhin doi", "nhin doi", "dau nhuc mat"], 6),
     (["sot", "ho", "cam", "met", "dau dau", "dau bung", "tieu chay",
-      "dau hong", "nghet mui", "bieng an", "phat ban"], 1),
+      "dau hong", "nghet mui", "bieng an", "phat ban", "sot cao", "ret run",
+      "on lanh", "dau co", "dau khop", "sung khop", "buon non", "non oi",
+      "mat ngu", "sut can", "tieu buot", "tieu rat", "dau lung", "dau vai",
+      "te tay", "te chan", "viem hong", "khan tieng", "chay mui", "hat hoi",
+      "so mui", "ngat mui", "viem mui", "viem xoang", "dau nua dau",
+      "day hoi", "o chua", "tao bon", "ho khan", "ho dom", "dau da day",
+      "tieu dem", "an khong ngon", "dau tai", "u tai", "viem tai"], 1),
 ]
 
 # Từ khóa da liễu "ngứa/mụn" dễ nhầm với từ thường nên chỉ khớp khi đi
@@ -204,7 +234,9 @@ def _match_specialty_id(text: str, return_keywords: bool = False):
     if _is_child_case(text):
         child_keywords = [
             "sot", "ho", "cam", "met", "bieng an", "phat ban", "tieu chay",
-            "dau bung", "dau dau",
+            "dau bung", "dau dau", "non tro", "quay khoc", "tieu dem",
+            "ho khan", "so mui", "bieng bu", "tay chan mieng", "sot cao",
+            "dau tai", "tieu buot", "viem tai",
         ]
         matched = _matched_keywords(text, child_keywords)
         if matched:
