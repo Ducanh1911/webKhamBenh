@@ -172,6 +172,13 @@ def create_user(
         raise HTTPException(status_code=400, detail="Role không hợp lệ")
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email đã được sử dụng")
+    specialty = None
+    if new_role == UserRole.DOCTOR:
+        if payload.specialty_id is None:
+            raise HTTPException(status_code=400, detail="Vui lòng chọn chuyên khoa cho bác sĩ")
+        specialty = db.query(Specialty).filter(Specialty.id == payload.specialty_id).first()
+        if not specialty:
+            raise HTTPException(status_code=400, detail="Chuyên khoa không tồn tại")
     user = User(
         full_name=payload.full_name,
         email=payload.email,
@@ -180,6 +187,16 @@ def create_user(
         role=new_role,
     )
     db.add(user)
+    db.flush()  # Lấy user.id để gắn hồ sơ bác sĩ, vẫn cùng một transaction.
+    if new_role == UserRole.DOCTOR and specialty is not None:
+        db.add(Doctor(
+            user_id=user.id,
+            specialty_id=specialty.id,
+            clinic_name=payload.clinic_name or "Phòng khám MediBook",
+            years_experience=payload.years_experience,
+            consultation_fee=payload.consultation_fee,
+            bio=payload.bio,
+        ))
     db.commit()
     db.refresh(user)
     return AdminUserOut(

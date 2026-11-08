@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  createAdminUser, listAdminAppointments, listAdminStats, listAdminUsers, updateAdminAppointmentStatus, updateUserRole,
-  type AdminAppointment, type AdminStats, type AdminUser,
+  createAdminUser, listAdminAppointments, listAdminStats, listAdminUsers, listSpecialties, updateAdminAppointmentStatus, updateUserRole,
+  type AdminAppointment, type AdminStats, type AdminUser, type Specialty,
 } from '../lib/api'
 import Pagination from '../components/Pagination'
 
@@ -45,8 +45,17 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
   const [addRole, setAddRole] = useState('patient')
   const [addUserError, setAddUserError] = useState('')
   const [adding, setAdding] = useState(false)
+  const [specialties, setSpecialties] = useState<Specialty[]>([])
+  const [addSpecialtyId, setAddSpecialtyId] = useState<number | ''>('')
+  const [addYears, setAddYears] = useState('')
+  const [addFee, setAddFee] = useState('')
+  const [addBio, setAddBio] = useState('')
   const [cancelTarget, setCancelTarget] = useState<AdminAppointment | null>(null)
   const [cancelling, setCancelling] = useState(false)
+
+  useEffect(() => {
+    listSpecialties().then(setSpecialties).catch(() => undefined)
+  }, [])
 
   async function confirmCancel() {
     if (!cancelTarget) return
@@ -63,13 +72,23 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
     e.preventDefault()
     if (addName.trim().length < 2) { setAddUserError('Vui lòng nhập họ và tên.'); return }
     if (addPassword.length < 6) { setAddUserError('Mật khẩu phải có ít nhất 6 ký tự.'); return }
+    if (addRole === 'doctor' && addSpecialtyId === '') { setAddUserError('Vui lòng chọn chuyên khoa cho bác sĩ.'); return }
     setAdding(true)
     setAddUserError('')
     try {
-      await createAdminUser(addName.trim(), addEmail.trim(), addPassword, addPhone.trim() || null, addRole)
+      await createAdminUser(
+        addName.trim(), addEmail.trim(), addPassword, addPhone.trim() || null, addRole,
+        addRole === 'doctor' ? {
+          specialty_id: Number(addSpecialtyId),
+          years_experience: Number(addYears) || 0,
+          consultation_fee: Number(addFee) || 0,
+          bio: addBio.trim() || null,
+        } : undefined,
+      )
       setNotice(`Đã thêm người dùng ${addName.trim()}.`)
       setShowAddUser(false)
       setAddName(''); setAddEmail(''); setAddPhone(''); setAddPassword(''); setAddRole('patient')
+      setAddSpecialtyId(''); setAddYears(''); setAddFee(''); setAddBio('')
       // Người mới nằm cuối danh sách (sắp xếp theo id tăng dần) nên nhảy tới trang cuối để thấy ngay.
       const first = await listAdminUsers(1, 1)
       const lastPage = Math.max(1, Math.ceil(first.total / PAGE_SIZE))
@@ -269,6 +288,31 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
                   <option value="admin">{ROLE_LABEL.admin}</option>
                 </select>
               </label>
+              {addRole === 'doctor' && (
+                <>
+                  <label className="block mt-4">
+                    <span className="text-sm font-medium">Chuyên khoa</span>
+                    <select value={addSpecialtyId} onChange={e => setAddSpecialtyId(e.target.value === '' ? '' : Number(e.target.value))} className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5 bg-white">
+                      <option value="">Chọn chuyên khoa</option>
+                      {specialties.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <label className="block mt-4">
+                      <span className="text-sm font-medium">Số năm kinh nghiệm</span>
+                      <input type="number" min={0} value={addYears} onChange={e => setAddYears(e.target.value)} placeholder="10" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
+                    </label>
+                    <label className="block mt-4">
+                      <span className="text-sm font-medium">Giá tiền (đ / lượt khám)</span>
+                      <input type="number" min={0} step={1000} value={addFee} onChange={e => setAddFee(e.target.value)} placeholder="200000" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
+                    </label>
+                  </div>
+                  <label className="block mt-4">
+                    <span className="text-sm font-medium">Mô tả</span>
+                    <textarea value={addBio} onChange={e => setAddBio(e.target.value)} placeholder="Ví dụ: Bác sĩ nhiều năm kinh nghiệm, tận tâm với bệnh nhân." rows={3} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3.5 py-2.5" />
+                  </label>
+                </>
+              )}
               <div className="flex gap-3 mt-5">
                 <button type="submit" disabled={adding} className="h-11 px-5 rounded-lg bg-brand-700 hover:bg-brand-800 disabled:opacity-60 text-white text-sm font-medium">{adding ? 'Đang thêm…' : 'Thêm người dùng'}</button>
                 <button type="button" onClick={() => setShowAddUser(false)} className="h-11 px-5 rounded-lg border border-slate-200 bg-white text-sm font-medium">Đóng</button>

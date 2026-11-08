@@ -9,6 +9,12 @@ class AdminUserCreate(BaseModel):
     phone: str | None = None
     password: str = Field(min_length=6)
     role: str = "patient"
+    # Chỉ dùng khi role là bác sĩ: tạo thêm hồ sơ Doctor gắn với user mới.
+    specialty_id: int | None = None
+    clinic_name: str | None = None
+    years_experience: int = Field(default=0, ge=0)
+    consultation_fee: int = Field(default=0, ge=0)
+    bio: str | None = None
 
 
 class AdminAppointmentOut(BaseModel):
