@@ -305,7 +305,6 @@ export default function AdminPage({ onLogout, onClearAuthNotice }: { onLogout: (
                 <span className="text-sm font-medium">Số điện thoại <span className="text-ink-500 font-normal">(không bắt buộc)</span></span>
                 <input type="tel" value={addPhone} onChange={e => setAddPhone(e.target.value)} placeholder="0900000000" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
               </label>
-              <p className="mt-4 rounded-lg bg-slate-50 border border-slate-200 text-ink-500 text-sm px-3.5 py-2.5">Tài khoản mới sẽ dùng mật khẩu mặc định <span className="font-medium text-ink-900">123456</span>.</p>
               <label className="block mt-4">
                 <span className="text-sm font-medium">Vai trò</span>
                 <select value={addRole} onChange={e => setAddRole(e.target.value)} className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5 bg-white">
