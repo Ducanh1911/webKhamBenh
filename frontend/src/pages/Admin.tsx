@@ -47,7 +47,6 @@ export default function AdminPage({ onLogout, onClearAuthNotice }: { onLogout: (
   const [addName, setAddName] = useState('')
   const [addEmail, setAddEmail] = useState('')
   const [addPhone, setAddPhone] = useState('')
-  const [addPassword, setAddPassword] = useState('')
   const [addRole, setAddRole] = useState('patient')
   const [addUserError, setAddUserError] = useState('')
   const [adding, setAdding] = useState(false)
@@ -77,13 +76,13 @@ export default function AdminPage({ onLogout, onClearAuthNotice }: { onLogout: (
   async function submitAddUser(e: React.FormEvent) {
     e.preventDefault()
     if (addName.trim().length < 2) { setAddUserError('Vui lòng nhập họ và tên.'); return }
-    if (addPassword.length < 6) { setAddUserError('Mật khẩu phải có ít nhất 6 ký tự.'); return }
     if (addRole === 'doctor' && addSpecialtyId === '') { setAddUserError('Vui lòng chọn chuyên khoa cho bác sĩ.'); return }
     setAdding(true)
     setAddUserError('')
     try {
+      // Mật khẩu mặc định cho tài khoản mới là 123456 (không hiện ô nhập).
       await createAdminUser(
-        addName.trim(), addEmail.trim(), addPassword, addPhone.trim() || null, addRole,
+        addName.trim(), addEmail.trim(), '123456', addPhone.trim() || null, addRole,
         addRole === 'doctor' ? {
           specialty_id: Number(addSpecialtyId),
           years_experience: Number(addYears) || 0,
@@ -93,7 +92,7 @@ export default function AdminPage({ onLogout, onClearAuthNotice }: { onLogout: (
       )
       setNotice('Thêm người dùng thành công.')
       setShowAddUser(false)
-      setAddName(''); setAddEmail(''); setAddPhone(''); setAddPassword(''); setAddRole('patient')
+      setAddName(''); setAddEmail(''); setAddPhone(''); setAddRole('patient')
       setAddSpecialtyId(''); setAddYears(''); setAddFee(''); setAddBio('')
       // Người mới nằm cuối danh sách (sắp xếp theo id tăng dần). Về lại
       // bộ lọc Tất cả và tải trực tiếp trang cuối để thấy người mới ngay,
@@ -306,10 +305,7 @@ export default function AdminPage({ onLogout, onClearAuthNotice }: { onLogout: (
                 <span className="text-sm font-medium">Số điện thoại <span className="text-ink-500 font-normal">(không bắt buộc)</span></span>
                 <input type="tel" value={addPhone} onChange={e => setAddPhone(e.target.value)} placeholder="0900000000" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
               </label>
-              <label className="block mt-4">
-                <span className="text-sm font-medium">Mật khẩu <span className="text-ink-500 font-normal">(tối thiểu 6 ký tự)</span></span>
-                <input type="password" required value={addPassword} onChange={e => setAddPassword(e.target.value)} placeholder="••••••••" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
-              </label>
+              <p className="mt-4 rounded-lg bg-slate-50 border border-slate-200 text-ink-500 text-sm px-3.5 py-2.5">Tài khoản mới sẽ dùng mật khẩu mặc định <span className="font-medium text-ink-900">123456</span>.</p>
               <label className="block mt-4">
                 <span className="text-sm font-medium">Vai trò</span>
                 <select value={addRole} onChange={e => setAddRole(e.target.value)} className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5 bg-white">
