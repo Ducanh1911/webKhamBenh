@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   createAdminUser, listAdminAppointments, listAdminStats, listAdminUsers, listSpecialties, updateAdminAppointmentStatus, updateUserRole,
   type AdminAppointment, type AdminStats, type AdminUser, type Specialty,
 } from '../lib/api'
 import Pagination from '../components/Pagination'
+import SuccessPopup from '../components/SuccessPopup'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận', completed: 'Đã khám xong',
@@ -26,7 +27,7 @@ function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-export default function AdminPage({ onLogout }: { onLogout: () => void }) {
+export default function AdminPage({ onLogout, onClearAuthNotice }: { onLogout: () => void; onClearAuthNotice?: () => void }) {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [appointments, setAppointments] = useState<AdminAppointment[]>([])
   const [users, setUsers] = useState<AdminUser[]>([])
@@ -37,6 +38,11 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const dismissNotice = useCallback(() => setNotice(''), [])
+  // Thông báo thành công của riêng trang này thay thế popup "đăng nhập
+  // thành công" hiện ở App, tránh 2 popup chồng lên nhau.
+  useEffect(() => { if (notice) onClearAuthNotice?.() }, [notice, onClearAuthNotice])
+  const [roleFilter, setRoleFilter] = useState<'all' | 'patient' | 'doctor' | 'admin'>('all')
   const [showAddUser, setShowAddUser] = useState(false)
   const [addName, setAddName] = useState('')
   const [addEmail, setAddEmail] = useState('')
@@ -85,15 +91,22 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
           bio: addBio.trim() || null,
         } : undefined,
       )
-      setNotice(`Đã thêm người dùng ${addName.trim()}.`)
+      setNotice('Thêm người dùng thành công.')
       setShowAddUser(false)
       setAddName(''); setAddEmail(''); setAddPhone(''); setAddPassword(''); setAddRole('patient')
       setAddSpecialtyId(''); setAddYears(''); setAddFee(''); setAddBio('')
-      // Người mới nằm cuối danh sách (sắp xếp theo id tăng dần) nên nhảy tới trang cuối để thấy ngay.
+      // Người mới nằm cuối danh sách (sắp xếp theo id tăng dần). Về lại
+      // bộ lọc Tất cả và tải trực tiếp trang cuối để thấy người mới ngay,
+      // tránh đọc state roleFilter/page cũ trong closure.
+      setRoleFilter('all')
       const first = await listAdminUsers(1, 1)
       const lastPage = Math.max(1, Math.ceil(first.total / PAGE_SIZE))
-      if (lastPage !== page) setPage(lastPage)
-      else await load()
+      const u = await listAdminUsers(lastPage, PAGE_SIZE)
+      setUsers(u.items)
+      setAppointments([])
+      setTotal(u.total)
+      setTotalPages(u.total_pages)
+      setPage(lastPage)
     } catch (err) {
       setAddUserError(err instanceof Error ? err.message : 'Thêm người dùng không thành công.')
     } finally {
@@ -110,7 +123,7 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
       if (tab === 'users') {
         // Tab Người dùng tách biệt hoàn toàn: chỉ tải và chỉ hiện người dùng,
         // không lẫn với bất kỳ tab lịch hẹn nào.
-        const u = await listAdminUsers(page, PAGE_SIZE)
+        const u = await listAdminUsers(page, PAGE_SIZE, roleFilter === 'all' ? undefined : roleFilter)
         setUsers(u.items)
         setAppointments([])
         setTotal(u.total)
@@ -130,10 +143,15 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
       setLoading(false)
     }
   }
-  useEffect(() => { load() }, [tab, page])
+  useEffect(() => { load() }, [tab, page, roleFilter])
 
   function switchTab(t: Tab) {
     setTab(t)
+    setPage(1)
+  }
+
+  function switchRoleFilter(f: typeof roleFilter) {
+    setRoleFilter(f)
     setPage(1)
   }
 
@@ -178,7 +196,7 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
       <main className="max-w-6xl mx-auto px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Quản trị hệ thống</h1>
         <p className="text-ink-500 mt-1.5 text-[15px]">Xem toàn bộ lịch hẹn, xác nhận / hủy lịch và phân quyền người dùng. Chỉ tài khoản admin mới vào được trang này.</p>
-        {notice && <p className="mt-5 rounded-lg bg-teal-50 border border-teal-100 text-teal-800 text-sm px-3.5 py-2.5">{notice}</p>}
+        {notice && <SuccessPopup message={notice} onClose={dismissNotice} />}
         {error && <p className="mt-5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm px-3.5 py-2.5">{error}</p>}
 
         {stats && (
@@ -202,9 +220,21 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
 
         {tab === 'users' ? (
           <>
-            <div className="flex items-center justify-between mt-6">
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-6">
               <h2 className="text-lg font-semibold">Người dùng</h2>
-              <button onClick={() => { setAddUserError(''); setShowAddUser(true) }} className="h-10 px-4 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium">Thêm người dùng</button>
+              <div className="flex flex-wrap items-center gap-2">
+                {([
+                  { id: 'all', label: 'Tất cả' },
+                  { id: 'patient', label: 'Bệnh nhân' },
+                  { id: 'doctor', label: 'Bác sĩ' },
+                  { id: 'admin', label: 'Quản trị' },
+                ] as const).map(f => (
+                  <button key={f.id} onClick={() => switchRoleFilter(f.id)} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${roleFilter === f.id ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>
+                    {f.label}
+                  </button>
+                ))}
+                <button onClick={() => { setAddUserError(''); setShowAddUser(true) }} className="h-10 px-4 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium">Thêm người dùng</button>
+              </div>
             </div>
             {loading ? <p className="mt-4 text-ink-500 text-sm">Đang tải…</p> : users.length === 0 ? (
               <p className="text-sm text-ink-500 mt-3">Chưa có người dùng nào.</p>

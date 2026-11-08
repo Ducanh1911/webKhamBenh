@@ -4,12 +4,14 @@ import LoginPage from './pages/Login'
 import RegisterPage from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import AdminPage from './pages/Admin'
+import SuccessPopup from './components/SuccessPopup'
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken())
   const [view, setView] = useState<'login' | 'register'>('login')
   const [me, setMe] = useState<Me | null>(null)
   const [meLoading, setMeLoading] = useState(false)
+  const [authNotice, setAuthNotice] = useState('')
 
   useEffect(() => {
     if (!authed) { setMe(null); setMeLoading(false); return }
@@ -22,6 +24,7 @@ export default function App() {
     setAuthed(false)
     setMe(null)
     setMeLoading(false)
+    setAuthNotice('')
   }
 
   if (authed) {
@@ -32,10 +35,20 @@ export default function App() {
       return <div className="min-h-screen flex items-center justify-center text-ink-500 text-sm">Đang tải…</div>
     }
     if (me?.role === 'admin') {
-      return <AdminPage onLogout={logout} />
+      return (
+        <>
+          <AdminPage onLogout={logout} onClearAuthNotice={() => setAuthNotice('')} />
+          {authNotice && <SuccessPopup message={authNotice} onClose={() => setAuthNotice('')} />}
+        </>
+      )
     }
-    return <Dashboard onLogout={logout} />
+    return (
+      <>
+        <Dashboard onLogout={logout} onClearAuthNotice={() => setAuthNotice('')} />
+        {authNotice && <SuccessPopup message={authNotice} onClose={() => setAuthNotice('')} />}
+      </>
+    )
   }
-  if (view === 'register') return <RegisterPage onSuccess={() => setAuthed(true)} onGoLogin={() => setView('login')} />
-  return <LoginPage onSuccess={() => setAuthed(true)} onGoRegister={() => setView('register')} />
+  if (view === 'register') return <RegisterPage onSuccess={() => { setAuthNotice('Đăng ký thành công.'); setAuthed(true) }} onGoLogin={() => setView('login')} />
+  return <LoginPage onSuccess={() => { setAuthNotice('Đăng nhập thành công.'); setAuthed(true) }} onGoRegister={() => setView('register')} />
 }

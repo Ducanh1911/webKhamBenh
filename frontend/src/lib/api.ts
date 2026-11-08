@@ -161,8 +161,9 @@ export async function updateAdminAppointmentStatus(id: number, status: string): 
   if (!res.ok) await handleError(res, 'Đổi trạng thái lịch hẹn không thành công')
   return res.json()
 }
-export async function listAdminUsers(page = 1, pageSize = 6): Promise<Paginated<AdminUser>> {
+export async function listAdminUsers(page = 1, pageSize = 6, role?: string): Promise<Paginated<AdminUser>> {
   const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+  if (role) params.set('role', role)
   const res = await fetch(`${API}/api/v1/admin/users?${params}`, { headers: authHeaders() })
   if (!res.ok) await handleError(res, 'Không tải được danh sách người dùng')
   return res.json()

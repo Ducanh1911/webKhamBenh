@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { listDoctors, listSpecialties, listMyAppointments, createAppointment, cancelAppointment, requestTriage, createPayment, checkPayment, type Doctor, type Specialty, type Appointment, type TriageResult } from '../lib/api'
 import Pagination from '../components/Pagination'
 import ErrorPopup from '../components/ErrorPopup'
+import SuccessPopup from '../components/SuccessPopup'
 
 const PRIORITY_LABEL: Record<string, string> = {
   routine: 'Khám thường',
@@ -24,7 +25,7 @@ function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-export default function Dashboard({ onLogout }: { onLogout: () => void }) {
+export default function Dashboard({ onLogout, onClearAuthNotice }: { onLogout: () => void; onClearAuthNotice?: () => void }) {
   const [specialties, setSpecialties] = useState<Specialty[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -40,6 +41,10 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [error, setError] = useState('')
   const dismissError = useCallback(() => setError(''), [])
   const [notice, setNotice] = useState('')
+  const dismissNotice = useCallback(() => setNotice(''), [])
+  // Thông báo thành công của riêng trang này thay thế popup "đăng nhập
+  // thành công" hiện ở App, tránh 2 popup chồng lên nhau.
+  useEffect(() => { if (notice) onClearAuthNotice?.() }, [notice, onClearAuthNotice])
   const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('09:00')
@@ -220,7 +225,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
           <button onClick={() => setView('mine')} className={`px-3.5 py-2 rounded-full text-sm font-medium border ${view === 'mine' ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-ink-700 border-slate-200'}`}>Lịch hẹn của tôi{apptTotal > 0 ? ` (${apptTotal})` : ''}</button>
         </div>
 
-        {notice && <p className="mt-5 rounded-lg bg-teal-50 border border-teal-100 text-teal-800 text-sm px-3.5 py-2.5">{notice}</p>}
+        {notice && <SuccessPopup message={notice} onClose={dismissNotice} />}
         {error && <ErrorPopup message={error} onClose={dismissError} />}
 
         {view === 'booking' && (

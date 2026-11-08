@@ -6,6 +6,7 @@ Không endpoint nào ở đây trả về hashed_password.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import String, cast, func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -138,6 +139,7 @@ def update_appointment_status(
 
 @router.get("/users", response_model=PaginatedAdminUsersOut)
 def list_users(
+    role: str | None = None,
     page: int = 1,
     page_size: int = 6,
     admin: User = Depends(get_current_admin),
@@ -145,6 +147,12 @@ def list_users(
 ):
     page, page_size = _page_params(page, page_size)
     query = db.query(User).order_by(User.id)
+    if role:
+        if role.lower() not in ("patient", "doctor", "admin"):
+            raise HTTPException(status_code=400, detail="Role không hợp lệ")
+        # So sánh không phân biệt hoa/thường: trong DB còn sót role lưu
+        # dạng chữ hoa (vd: ADMIN) từ đợt sửa constraint trước đây.
+        query = query.filter(func.lower(cast(User.role, String)) == role.lower())
     total = query.count()
     rows = query.offset((page - 1) * page_size).limit(page_size).all()
     total_pages = (total + page_size - 1) // page_size if total else 0
