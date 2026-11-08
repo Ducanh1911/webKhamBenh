@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { listDoctors, listSpecialties, listMyAppointments, createAppointment, cancelAppointment, requestTriage, createPayment, checkPayment, type Doctor, type Specialty, type Appointment, type TriageResult } from '../lib/api'
 import Pagination from '../components/Pagination'
+import ErrorPopup from '../components/ErrorPopup'
 
 const PRIORITY_LABEL: Record<string, string> = {
   routine: 'Khám thường',
@@ -37,6 +38,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [apptTotal, setApptTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const dismissError = useCallback(() => setError(''), [])
   const [notice, setNotice] = useState('')
   const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null)
   const [date, setDate] = useState('')
@@ -219,7 +221,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {notice && <p className="mt-5 rounded-lg bg-teal-50 border border-teal-100 text-teal-800 text-sm px-3.5 py-2.5">{notice}</p>}
-        {error && <p className="mt-5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm px-3.5 py-2.5">{error}</p>}
+        {error && <ErrorPopup message={error} onClose={dismissError} />}
 
         {view === 'booking' && (
         <>
