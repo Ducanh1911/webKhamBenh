@@ -167,6 +167,15 @@ export async function listAdminUsers(page = 1, pageSize = 6): Promise<Paginated<
   if (!res.ok) await handleError(res, 'Không tải được danh sách người dùng')
   return res.json()
 }
+export async function createAdminUser(full_name: string, email: string, password: string, phone: string | null, role: string): Promise<AdminUser> {
+  const res = await fetch(`${API}/api/v1/admin/users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ full_name, email, password, phone, role }),
+  })
+  if (!res.ok) await handleError(res, 'Thêm người dùng không thành công')
+  return res.json()
+}
 export async function updateUserRole(id: number, role: string): Promise<AdminUser> {
   const res = await fetch(`${API}/api/v1/admin/users/${id}/role`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', ...authHeaders() },

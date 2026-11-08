@@ -109,7 +109,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
   }
 
-  const [confirmCancelId, setConfirmCancelId] = useState<number | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [payingId, setPayingId] = useState<number | null>(null)
   const [checkingId, setCheckingId] = useState<number | null>(null)
@@ -189,7 +189,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
     try {
       await cancelAppointment(id)
       setNotice('Đã hủy lịch hẹn.')
-      setConfirmCancelId(null)
+      setCancelTarget(null)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Hủy lịch không thành công.')
@@ -309,15 +309,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                     <button onClick={() => onCheckPayment(a)} disabled={checkingId === a.id} className="text-sm font-medium text-ink-700 border border-slate-200 rounded-lg px-3 py-2 bg-white">Kiểm tra thanh toán</button>
                   )}
                   {(a.status === 'PENDING' || a.status === 'pending' || a.status === 'CONFIRMED' || a.status === 'confirmed') && (
-                    confirmCancelId === a.id ? (
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm text-ink-700">Chắc chắn hủy?</span>
-                        <button onClick={() => onCancel(a.id)} disabled={cancelling} className="text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 rounded-lg px-3 py-2">Hủy lịch này</button>
-                        <button onClick={() => setConfirmCancelId(null)} className="text-sm font-medium text-ink-700 border border-slate-200 rounded-lg px-3 py-2 bg-white">Giữ lại</button>
-                      </span>
-                    ) : (
-                      <button onClick={() => setConfirmCancelId(a.id)} className="text-sm font-medium text-red-600 hover:text-red-700 border border-red-200 rounded-lg px-3 py-2 bg-white">Hủy lịch</button>
-                    )
+                    <button onClick={() => setCancelTarget(a)} className="text-sm font-medium text-red-600 hover:text-red-700 border border-red-200 rounded-lg px-3 py-2 bg-white">Hủy lịch</button>
                   )}
                 </div>
               </div>
@@ -360,6 +352,22 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
               <button type="button" onClick={() => setBookingDoctor(null)} className="h-11 px-5 rounded-lg border border-slate-200 bg-white text-sm font-medium">Đóng</button>
             </div>
           </form>
+            </div>
+          </div>
+        )}
+        {cancelTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setCancelTarget(null)}>
+            <div className="w-full max-w-sm bg-white border border-slate-200 rounded-xl p-6 shadow-card text-center" onClick={e => e.stopPropagation()}>
+              <div className="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                <span className="text-red-600 text-2xl font-bold leading-none">×</span>
+              </div>
+              <h2 className="font-semibold text-lg mt-4">Hủy lịch hẹn?</h2>
+              <p className="text-sm text-ink-500 mt-1.5">{cancelTarget.doctor_name} · {fmtDateTime(cancelTarget.start_at)}</p>
+              <p className="text-sm text-ink-700 mt-2">Lịch hẹn này sẽ chuyển sang trạng thái Đã hủy. Bạn có chắc chắn muốn hủy không?</p>
+              <div className="flex gap-3 mt-5 justify-center">
+                <button onClick={() => onCancel(cancelTarget.id)} disabled={cancelling} className="h-11 px-5 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-medium">{cancelling ? 'Đang hủy…' : 'Hủy lịch này'}</button>
+                <button onClick={() => setCancelTarget(null)} className="h-11 px-5 rounded-lg border border-slate-200 bg-white text-sm font-medium">Giữ lại</button>
+              </div>
             </div>
           </div>
         )}

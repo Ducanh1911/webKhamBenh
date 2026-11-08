@@ -5,17 +5,19 @@ nên frontend chỉ ẩn nút là chưa đủ: backend mới là nơi chặn th�
 Không endpoint nào ở đây trả về hashed_password.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_admin
+from app.core.security import hash_password
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.doctor import Doctor, Specialty
 from app.models.user import User, UserRole
 from app.schemas.admin import (
     AdminAppointmentOut,
     AdminStatsOut,
+    AdminUserCreate,
     AdminUserOut,
     AppointmentStatusUpdate,
     PaginatedAdminAppointmentsOut,
@@ -155,6 +157,34 @@ def list_users(
             for u in rows
         ],
         total=total, page=page, page_size=page_size, total_pages=total_pages,
+    )
+
+
+@router.post("/users", response_model=AdminUserOut, status_code=status.HTTP_201_CREATED)
+def create_user(
+    payload: AdminUserCreate,
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        new_role = UserRole(payload.role)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Role không hợp lệ")
+    if db.query(User).filter(User.email == payload.email).first():
+        raise HTTPException(status_code=400, detail="Email đã được sử dụng")
+    user = User(
+        full_name=payload.full_name,
+        email=payload.email,
+        phone=payload.phone,
+        hashed_password=hash_password(payload.password),
+        role=new_role,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return AdminUserOut(
+        id=user.id, full_name=user.full_name, email=user.email,
+        phone=user.phone, role=_status_str(user.role),
     )
 
 

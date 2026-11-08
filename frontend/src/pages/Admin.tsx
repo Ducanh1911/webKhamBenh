@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  listAdminAppointments, listAdminStats, listAdminUsers, updateAdminAppointmentStatus, updateUserRole,
+  createAdminUser, listAdminAppointments, listAdminStats, listAdminUsers, updateAdminAppointmentStatus, updateUserRole,
   type AdminAppointment, type AdminStats, type AdminUser,
 } from '../lib/api'
 import Pagination from '../components/Pagination'
@@ -37,6 +37,37 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [showAddUser, setShowAddUser] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addEmail, setAddEmail] = useState('')
+  const [addPhone, setAddPhone] = useState('')
+  const [addPassword, setAddPassword] = useState('')
+  const [addRole, setAddRole] = useState('patient')
+  const [addUserError, setAddUserError] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  async function submitAddUser(e: React.FormEvent) {
+    e.preventDefault()
+    if (addName.trim().length < 2) { setAddUserError('Vui lòng nhập họ và tên.'); return }
+    if (addPassword.length < 6) { setAddUserError('Mật khẩu phải có ít nhất 6 ký tự.'); return }
+    setAdding(true)
+    setAddUserError('')
+    try {
+      await createAdminUser(addName.trim(), addEmail.trim(), addPassword, addPhone.trim() || null, addRole)
+      setNotice(`Đã thêm người dùng ${addName.trim()}.`)
+      setShowAddUser(false)
+      setAddName(''); setAddEmail(''); setAddPhone(''); setAddPassword(''); setAddRole('patient')
+      // Người mới nằm cuối danh sách (sắp xếp theo id tăng dần) nên nhảy tới trang cuối để thấy ngay.
+      const first = await listAdminUsers(1, 1)
+      const lastPage = Math.max(1, Math.ceil(first.total / PAGE_SIZE))
+      if (lastPage !== page) setPage(lastPage)
+      else await load()
+    } catch (err) {
+      setAddUserError(err instanceof Error ? err.message : 'Thêm người dùng không thành công.')
+    } finally {
+      setAdding(false)
+    }
+  }
 
   async function load() {
     setLoading(true)
@@ -139,7 +170,10 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
 
         {tab === 'users' ? (
           <>
-            <h2 className="text-lg font-semibold mt-6">Người dùng</h2>
+            <div className="flex items-center justify-between mt-6">
+              <h2 className="text-lg font-semibold">Người dùng</h2>
+              <button onClick={() => { setAddUserError(''); setShowAddUser(true) }} className="h-10 px-4 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium">Thêm người dùng</button>
+            </div>
             {loading ? <p className="mt-4 text-ink-500 text-sm">Đang tải…</p> : users.length === 0 ? (
               <p className="text-sm text-ink-500 mt-3">Chưa có người dùng nào.</p>
             ) : (
@@ -189,6 +223,47 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
           <Pagination page={page} totalPages={totalPages} total={total} onChange={setPage} />
         )}
       </main>
+      {showAddUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowAddUser(false)}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white border border-slate-200 rounded-xl p-6 shadow-card" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="font-semibold text-lg">Thêm người dùng</h2>
+              <button type="button" aria-label="Đóng" onClick={() => setShowAddUser(false)} className="text-ink-500 hover:text-ink-900 text-xl leading-none px-2 py-1">×</button>
+            </div>
+            <form onSubmit={submitAddUser}>
+              {addUserError && <p className="mt-4 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm px-3.5 py-2.5">{addUserError}</p>}
+              <label className="block mt-4">
+                <span className="text-sm font-medium">Họ và tên</span>
+                <input type="text" required value={addName} onChange={e => setAddName(e.target.value)} placeholder="Nguyễn Văn A" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
+              </label>
+              <label className="block mt-4">
+                <span className="text-sm font-medium">Email</span>
+                <input type="email" required value={addEmail} onChange={e => setAddEmail(e.target.value)} placeholder="ban@example.com" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
+              </label>
+              <label className="block mt-4">
+                <span className="text-sm font-medium">Số điện thoại <span className="text-ink-500 font-normal">(không bắt buộc)</span></span>
+                <input type="tel" value={addPhone} onChange={e => setAddPhone(e.target.value)} placeholder="0900000000" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
+              </label>
+              <label className="block mt-4">
+                <span className="text-sm font-medium">Mật khẩu <span className="text-ink-500 font-normal">(tối thiểu 6 ký tự)</span></span>
+                <input type="password" required value={addPassword} onChange={e => setAddPassword(e.target.value)} placeholder="••••••••" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
+              </label>
+              <label className="block mt-4">
+                <span className="text-sm font-medium">Vai trò</span>
+                <select value={addRole} onChange={e => setAddRole(e.target.value)} className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5 bg-white">
+                  <option value="patient">{ROLE_LABEL.patient}</option>
+                  <option value="doctor">{ROLE_LABEL.doctor}</option>
+                  <option value="admin">{ROLE_LABEL.admin}</option>
+                </select>
+              </label>
+              <div className="flex gap-3 mt-5">
+                <button type="submit" disabled={adding} className="h-11 px-5 rounded-lg bg-brand-700 hover:bg-brand-800 disabled:opacity-60 text-white text-sm font-medium">{adding ? 'Đang thêm…' : 'Thêm người dùng'}</button>
+                <button type="button" onClick={() => setShowAddUser(false)} className="h-11 px-5 rounded-lg border border-slate-200 bg-white text-sm font-medium">Đóng</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

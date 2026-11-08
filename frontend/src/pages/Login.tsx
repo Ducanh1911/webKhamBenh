@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { login } from '../lib/api'
+import ErrorPopup from '../components/ErrorPopup'
 
 export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () => void; onGoRegister: () => void }) {
   const [email, setEmail] = useState('')
@@ -7,6 +8,7 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
   const [remember, setRemember] = useState(true)
   const [showForgot, setShowForgot] = useState(false)
   const [error, setError] = useState('')
+  const dismissError = useCallback(() => setError(''), [])
   const [loading, setLoading] = useState(false)
 
   async function submit(e: React.FormEvent) {
@@ -64,9 +66,7 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
           <p className="text-ink-500 text-[15px] mt-1.5">Đăng nhập để xem lịch khám và hồ sơ của bạn.</p>
 
           <form onSubmit={submit} className="mt-8 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-card">
-            {error && (
-              <p className="mb-5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm px-3.5 py-2.5">{error}</p>
-            )}
+            {error && <ErrorPopup message={error} onClose={dismissError} />}
 
             <label className="block">
               <span className="text-sm font-medium text-ink-900">Email</span>

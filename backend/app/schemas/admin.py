@@ -1,6 +1,14 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
+
+
+class AdminUserCreate(BaseModel):
+    full_name: str
+    email: EmailStr
+    phone: str | None = None
+    password: str = Field(min_length=6)
+    role: str = "patient"
 
 
 class AdminAppointmentOut(BaseModel):
