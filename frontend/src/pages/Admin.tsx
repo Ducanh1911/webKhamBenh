@@ -45,6 +45,19 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
   const [addRole, setAddRole] = useState('patient')
   const [addUserError, setAddUserError] = useState('')
   const [adding, setAdding] = useState(false)
+  const [cancelTarget, setCancelTarget] = useState<AdminAppointment | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+
+  async function confirmCancel() {
+    if (!cancelTarget) return
+    setCancelling(true)
+    try {
+      await changeStatus(cancelTarget.id, 'cancelled')
+      setCancelTarget(null)
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   async function submitAddUser(e: React.FormEvent) {
     e.preventDefault()
@@ -210,7 +223,7 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-brand-700">{STATUS_LABEL[a.status] ?? a.status}</span>
                       {a.status === 'pending' && <button onClick={() => changeStatus(a.id, 'confirmed')} className="text-sm font-medium text-white bg-brand-700 hover:bg-brand-800 rounded-lg px-3 py-2">Xác nhận</button>}
-                      {(a.status === 'pending' || a.status === 'confirmed') && <button onClick={() => changeStatus(a.id, 'cancelled')} className="text-sm font-medium text-red-600 border border-red-200 rounded-lg px-3 py-2 bg-white">Hủy lịch</button>}
+                      {(a.status === 'pending' || a.status === 'confirmed') && <button onClick={() => setCancelTarget(a)} className="text-sm font-medium text-red-600 border border-red-200 rounded-lg px-3 py-2 bg-white">Hủy lịch</button>}
                       {a.status === 'confirmed' && <button onClick={() => changeStatus(a.id, 'completed')} className="text-sm font-medium text-teal-700 border border-teal-200 rounded-lg px-3 py-2 bg-white">Đã khám xong</button>}
                     </div>
                   </div>
@@ -261,6 +274,22 @@ export default function AdminPage({ onLogout }: { onLogout: () => void }) {
                 <button type="button" onClick={() => setShowAddUser(false)} className="h-11 px-5 rounded-lg border border-slate-200 bg-white text-sm font-medium">Đóng</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setCancelTarget(null)}>
+          <div className="w-full max-w-sm bg-white border border-slate-200 rounded-xl p-6 shadow-card text-center" onClick={e => e.stopPropagation()}>
+            <div className="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+              <span className="text-red-600 text-2xl font-bold leading-none">×</span>
+            </div>
+            <h2 className="font-semibold text-lg mt-4">Hủy lịch hẹn?</h2>
+            <p className="text-sm text-ink-500 mt-1.5">{cancelTarget.patient_name} · {cancelTarget.doctor_name} · {fmtDateTime(cancelTarget.start_at)}</p>
+            <p className="text-sm text-ink-700 mt-2">Bạn có muốn hủy lịch này không?</p>
+            <div className="flex gap-3 mt-5 justify-center">
+              <button onClick={confirmCancel} disabled={cancelling} className="h-11 px-5 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-medium">{cancelling ? 'Đang hủy…' : 'Hủy lịch này'}</button>
+              <button onClick={() => setCancelTarget(null)} className="h-11 px-5 rounded-lg border border-slate-200 bg-white text-sm font-medium">Giữ lại</button>
+            </div>
           </div>
         </div>
       )}
