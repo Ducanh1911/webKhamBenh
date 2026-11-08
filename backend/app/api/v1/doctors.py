@@ -1,8 +1,10 @@
+from datetime import date as date_cls, datetime, time as time_cls, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User
 from app.models.doctor import Doctor, Specialty
+from app.models.appointment import Appointment, AppointmentStatus
 
 router = APIRouter()
 
@@ -17,6 +19,37 @@ def _page_params(page: int, page_size: int) -> tuple[int, int]:
 def list_specialties(db: Session = Depends(get_db)):
     rows = db.query(Specialty).order_by(Specialty.name).all()
     return {"specialties": [{"id": s.id, "name": s.name, "description": s.description} for s in rows]}
+
+@router.get("/{doctor_id}/booked-slots")
+def booked_slots(doctor_id: int, date: str, db: Session = Depends(get_db)):
+    """Khung giờ đã có người đặt của một bác sĩ trong một ngày.
+
+    Công khai (không cần đăng nhập) để form đặt lịch vô hiệu hóa các
+    khung giờ này trước khi người dùng chọn. Chỉ tính lịch ở trạng thái
+    Chờ xác nhận / Đã xác nhận; lịch đã hủy không chiếm giờ. Ngày `date`
+    là ngày giờ Việt Nam (YYYY-MM-DD); khung giờ khám 08:00-16:30 giờ
+    VN tương ứng 01:00-09:30 UTC cùng ngày nên lọc theo khoảng ngày UTC.
+    """
+    try:
+        day = date_cls.fromisoformat(date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ngày không hợp lệ, dùng định dạng YYYY-MM-DD")
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bác sĩ")
+    start = datetime.combine(day, time_cls.min, tzinfo=timezone.utc)
+    end = datetime.combine(day + timedelta(days=1), time_cls.min, tzinfo=timezone.utc)
+    rows = (
+        db.query(Appointment.start_at)
+        .filter(
+            Appointment.doctor_id == doctor_id,
+            Appointment.start_at >= start,
+            Appointment.start_at < end,
+            Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]),
+        )
+        .all()
+    )
+    return {"doctor_id": doctor_id, "date": date, "booked_slots": [r[0].isoformat() for r in rows]}
 
 @router.get("")
 def list_doctors(

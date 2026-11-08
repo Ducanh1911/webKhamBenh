@@ -125,6 +125,15 @@ export async function createAppointment(doctorId: number, startAt: string, reaso
   if (!res.ok) await handleError(res, 'Đặt lịch không thành công, vui lòng thử lại')
   return res.json()
 }
+export async function getBookedSlots(doctorId: number, date: string): Promise<string[]> {
+  const res = await fetch(`${API}/api/v1/doctors/${doctorId}/booked-slots?date=${date}`)
+  if (!res.ok) await handleError(res, 'Không tải được khung giờ đã đặt')
+  const data = await res.json() as { booked_slots: string[] }
+  return data.booked_slots.map(s => {
+    const d = new Date(s)
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  })
+}
 export type Me = { id: number; full_name: string; email: string; role: string }
 export async function getMe(): Promise<Me> {
   const res = await fetch(`${API}/api/v1/auth/me`, { headers: authHeaders() })

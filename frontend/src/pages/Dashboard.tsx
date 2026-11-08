@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { listDoctors, listSpecialties, listMyAppointments, createAppointment, cancelAppointment, requestTriage, createPayment, checkPayment, type Doctor, type Specialty, type Appointment, type TriageResult } from '../lib/api'
+import { listDoctors, listSpecialties, listMyAppointments, createAppointment, getBookedSlots, cancelAppointment, requestTriage, createPayment, checkPayment, type Doctor, type Specialty, type Appointment, type TriageResult } from '../lib/api'
 import Pagination from '../components/Pagination'
 import ErrorPopup from '../components/ErrorPopup'
 import SuccessPopup from '../components/SuccessPopup'
@@ -24,6 +24,8 @@ const PAYMENT_LABEL: Record<string, string> = {
 function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
+
+const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '13:30', '14:30', '15:30', '16:30']
 
 export default function Dashboard({ onLogout, onClearAuthNotice }: { onLogout: () => void; onClearAuthNotice?: () => void }) {
   const [specialties, setSpecialties] = useState<Specialty[]>([])
@@ -50,6 +52,26 @@ export default function Dashboard({ onLogout, onClearAuthNotice }: { onLogout: (
   const [time, setTime] = useState('09:00')
   const [reason, setReason] = useState('')
   const [booking, setBooking] = useState(false)
+  const [bookedTimes, setBookedTimes] = useState<string[]>([])
+  // Mỗi khi mở modal đặt lịch hoặc đổi ngày: tải các khung giờ bác sĩ
+  // này đã có người đặt trong ngày đó để vô hiệu hóa trước khi chọn.
+  // Nếu giờ đang chọn vừa bị đặt thì tự chuyển sang giờ trống đầu tiên.
+  useEffect(() => {
+    if (!bookingDoctor || !date) { setBookedTimes([]); return }
+    let cancelled = false
+    getBookedSlots(bookingDoctor.id, date)
+      .then(times => {
+        if (cancelled) return
+        setBookedTimes(times)
+        if (times.includes(time)) {
+          const firstFree = TIME_SLOTS.find(t => !times.includes(t))
+          if (firstFree) setTime(firstFree)
+        }
+      })
+      .catch(() => { if (!cancelled) setBookedTimes([]) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingDoctor, date])
   const [symptoms, setSymptoms] = useState('')
   const [triage, setTriage] = useState<TriageResult | null>(null)
   const [triaging, setTriaging] = useState(false)
@@ -344,8 +366,11 @@ export default function Dashboard({ onLogout, onClearAuthNotice }: { onLogout: (
               <label className="block">
                 <span className="text-sm font-medium">Giờ khám</span>
                 <select value={time} onChange={e => setTime(e.target.value)} className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5 bg-white">
-                  {['08:00','09:00','10:00','11:00','13:30','14:30','15:30','16:30'].map(t => <option key={t} value={t}>{t}</option>)}
+                  {TIME_SLOTS.map(t => <option key={t} value={t} disabled={bookedTimes.includes(t)}>{t}{bookedTimes.includes(t) ? ' — Đã đặt' : ''}</option>)}
                 </select>
+                {date && bookedTimes.length >= TIME_SLOTS.length && (
+                  <p className="text-sm text-red-600 mt-2">Bác sĩ đã kín lịch ngày này, vui lòng chọn ngày khác.</p>
+                )}
               </label>
             </div>
             <label className="block mt-4">
@@ -353,7 +378,7 @@ export default function Dashboard({ onLogout, onClearAuthNotice }: { onLogout: (
               <input type="text" value={reason} onChange={e => setReason(e.target.value)} placeholder="Ví dụ: đau họng 2 ngày" className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 px-3.5" />
             </label>
             <div className="flex gap-3 mt-5">
-              <button type="submit" disabled={booking} className="h-11 px-5 rounded-lg bg-brand-700 hover:bg-brand-800 disabled:opacity-60 text-white text-sm font-medium">{booking ? 'Đang đặt lịch…' : 'Xác nhận đặt lịch'}</button>
+              <button type="submit" disabled={booking || bookedTimes.length >= TIME_SLOTS.length} className="h-11 px-5 rounded-lg bg-brand-700 hover:bg-brand-800 disabled:opacity-60 text-white text-sm font-medium">{booking ? 'Đang đặt lịch…' : 'Xác nhận đặt lịch'}</button>
               <button type="button" onClick={() => setBookingDoctor(null)} className="h-11 px-5 rounded-lg border border-slate-200 bg-white text-sm font-medium">Đóng</button>
             </div>
           </form>
