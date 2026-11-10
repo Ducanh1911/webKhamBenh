@@ -41,46 +41,6 @@ def _out(p: Payment) -> PaymentOut:
     )
 
 
-# --- Chẩn đoán TẠM THỜI (gỡ sau khi kiểm tra xong, không phải API sản phẩm) ---
-# Kiểm tra sandbox VNPay có tới được từ máy chủ Render không. Từ máy phát
-# triển và từ Vercel đều timeout sau ~10s (3 lần: 5/11, 6/11, 10/11), nên
-# chỉ tuyến Render mới quyết định được hướng VNPay có khả thi hay không.
-_VNPAY_PING_URLS = [
-    "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
-    "https://sandbox.vnpayment.vn/",
-]
-_VNPAY_PING_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
-
-
-@router.get("/payments/vnpay-ping")
-def vnpay_ping():
-    """GET thử 2 đường dẫn sandbox VNPay, trả về mã HTTP hoặc lỗi + thời gian."""
-    results = []
-    for url in _VNPAY_PING_URLS:
-        start = time.monotonic()
-        try:
-            with httpx.Client(timeout=12.0, follow_redirects=True) as client:
-                r = client.get(url, headers={"User-Agent": _VNPAY_PING_UA})
-            results.append({
-                "url": url,
-                "ok": True,
-                "status": r.status_code,
-                "elapsed_s": round(time.monotonic() - start, 2),
-            })
-        except Exception as e:  # timeout / lỗi kết nối: ghi lại, không 500
-            results.append({
-                "url": url,
-                "ok": False,
-                "error": type(e).__name__,
-                "detail": str(e)[:200],
-                "elapsed_s": round(time.monotonic() - start, 2),
-            })
-    return {"service": "vnpay-ping", "results": results}
-
-
 def _apply_success(db: Session, payment: Payment, trans_id: int | None, result_code: int):
     """Ghi nhận thanh toán thành công. Idempotent: gọi lại không đổi gì.
 
