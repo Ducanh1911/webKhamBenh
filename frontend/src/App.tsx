@@ -5,6 +5,7 @@ import RegisterPage from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import AdminPage from './pages/Admin'
 import SuccessPopup from './components/SuccessPopup'
+import ChatWidget from './components/ChatWidget'
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken())
@@ -39,6 +40,7 @@ export default function App() {
         <>
           <AdminPage onLogout={logout} onClearAuthNotice={() => setAuthNotice('')} />
           {authNotice && <SuccessPopup message={authNotice} onClose={() => setAuthNotice('')} />}
+          <ChatWidget />
         </>
       )
     }
@@ -46,9 +48,20 @@ export default function App() {
       <>
         <Dashboard onLogout={logout} onClearAuthNotice={() => setAuthNotice('')} />
         {authNotice && <SuccessPopup message={authNotice} onClose={() => setAuthNotice('')} />}
+        <ChatWidget />
       </>
     )
   }
-  if (view === 'register') return <RegisterPage onSuccess={() => { setAuthNotice('Đăng ký thành công.'); setAuthed(true) }} onGoLogin={() => setView('login')} />
-  return <LoginPage onSuccess={() => { setAuthNotice('Đăng nhập thành công.'); setAuthed(true) }} onGoRegister={() => setView('register')} />
+  if (view === 'register') return (
+    <>
+      <RegisterPage onSuccess={() => { setAuthNotice('Đăng ký thành công.'); setAuthed(true) }} onGoLogin={() => setView('login')} />
+      <ChatWidget />
+    </>
+  )
+  return (
+    <>
+      <LoginPage onSuccess={() => { setAuthNotice('Đăng nhập thành công.'); setAuthed(true) }} onGoRegister={() => setView('register')} />
+      <ChatWidget />
+    </>
+  )
 }

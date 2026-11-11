@@ -109,6 +109,25 @@ export async function requestTriage(symptoms: string): Promise<TriageResult> {
   if (!res.ok) await handleError(res, 'Không gợi ý được bác sĩ, vui lòng thử lại')
   return res.json()
 }
+export type ChatMessage = { role: 'user' | 'assistant'; content: string }
+export type ChatReply = {
+  reply: string
+  specialty: { id: number; name: string } | null
+  doctors: { id: number; name: string; consultation_fee: number }[]
+  priority: string
+  disclaimer: string
+}
+// Chatbot tư vấn sức khỏe (Hướng B, LLM OpenAI). Chưa cấu hình key thì
+// server trả 503, handleError sẽ throw Error với detail tiếng Việt để UI hiện.
+export async function sendChatMessage(messages: ChatMessage[]): Promise<ChatReply> {
+  const res = await fetch(`${API}/api/v1/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages }),
+  })
+  if (!res.ok) await handleError(res, 'Trợ lý AI tạm thời không trả lời được, vui lòng thử lại sau')
+  return res.json()
+}
 export type MyAppointmentsPage = { appointments: Appointment[]; total: number; page: number; page_size: number; total_pages: number }
 export async function listMyAppointments(page = 1, pageSize = 5): Promise<MyAppointmentsPage> {
   const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
