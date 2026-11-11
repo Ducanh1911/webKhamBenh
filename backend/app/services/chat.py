@@ -1,4 +1,4 @@
-"""Chatbot tư vấn sức khỏe (Hướng B — lớp LLM Google Gemini, model gemini-2.0-flash, free tier).
+"""Chatbot tư vấn sức khỏe (Hướng B — lớp LLM Google Gemini, model gemini-3.8-flash, free tier).
 
 Luồng: tin nhắn mới nhất của user -> chạy triage rules (Hướng A) để lấy
 chuyên khoa / mức ưu tiên -> tra bác sĩ của chuyên khoa đó từ DB -> đưa
