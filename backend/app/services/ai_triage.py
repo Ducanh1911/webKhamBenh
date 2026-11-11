@@ -3,7 +3,7 @@
 Nhận triệu chứng -> gợi ý chuyên khoa + mức ưu tiên.
 Chỉ sàng lọc, KHÔNG chẩn đoán thay bác sĩ. Cần disclaimer ở UI.
 
-Lớp LLM (OpenAI/Gemini) là lớp nâng cao đặt lên sau: khi chưa có key hoặc
+Lớp LLM (Gemini) là lớp nâng cao đặt lên sau: khi chưa có key hoặc
 LLM lỗi thì tự rơi về rules này, nên hàm này luôn chạy được offline,
 không tốn tiền, không cần key.
 """

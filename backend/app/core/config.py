@@ -11,7 +11,11 @@ class Settings(BaseSettings):
     # từ trước, nên để mặc định là URL live thay vì "" — nếu backend
     # deploy ở nơi khác thì ghi đè bằng biến môi trường BACKEND_URL.
     BACKEND_URL: str = "https://medibook-ai-api.onrender.com"
-    OPENAI_API_KEY: str = ""
+    # Chatbot Gemini (free tier): key lấy ở Google AI Studio, cấu hình
+    # bằng biến môi trường trên Render, không commit key vào repo.
+    # Chưa cấu hình thì endpoint chat trả 503.
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.0-flash"
     # MoMo sandbox: cấu hình bằng biến môi trường trên Render, không
     # commit key vào repo. Chưa cấu hình thì endpoint thanh toán trả 503.
     MOMO_PARTNER_CODE: str = ""

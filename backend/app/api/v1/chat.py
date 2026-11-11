@@ -1,8 +1,8 @@
-"""POST /api/v1/chat — Chatbot tư vấn sức khỏe (Hướng B, LLM OpenAI).
+"""POST /api/v1/chat — Chatbot tư vấn sức khỏe (Hướng B, LLM Gemini).
 
 Không cần đăng nhập (như triage). Chạy triage rules trước để lấy chuyên
-khoa / mức ưu tiên, tra bác sĩ từ DB, rồi gọi OpenAI soạn câu trả lời.
-Chưa cấu hình key -> 503. OpenAI lỗi -> 502, không lộ chi tiết key.
+khoa / mức ưu tiên, tra bác sĩ từ DB, rồi gọi Gemini soạn câu trả lời.
+Chưa cấu hình key -> 503. Gemini lỗi -> 502, không lộ chi tiết key.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,10 +18,10 @@ router = APIRouter()
 
 @router.post("", response_model=ChatResponse)
 def chat(payload: ChatRequest, db: Session = Depends(get_db)):
-    if not settings.OPENAI_API_KEY:
+    if not settings.GEMINI_API_KEY:
         raise HTTPException(
             status_code=503,
-            detail="Trợ lý AI chưa được cấu hình (thiếu khóa OpenAI).",
+            detail="Trợ lý AI chưa được cấu hình (thiếu khóa Gemini).",
         )
     try:
         result = chat_reply([m.model_dump() for m in payload.messages], db)

@@ -117,7 +117,7 @@ export type ChatReply = {
   priority: string
   disclaimer: string
 }
-// Chatbot tư vấn sức khỏe (Hướng B, LLM OpenAI). Chưa cấu hình key thì
+// Chatbot tư vấn sức khỏe (Hướng B, LLM Gemini). Chưa cấu hình key thì
 // server trả 503, handleError sẽ throw Error với detail tiếng Việt để UI hiện.
 export async function sendChatMessage(messages: ChatMessage[]): Promise<ChatReply> {
   const res = await fetch(`${API}/api/v1/chat`, {

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { sendChatMessage, type ChatMessage } from '../lib/api'
 
-// Chatbot tư vấn sức khỏe (Hướng B, LLM OpenAI).
+// Chatbot tư vấn sức khỏe (Hướng B, LLM Gemini).
 // Nút nổi góc dưới-phải, hiện trên mọi trang; bấm mở khung trò chuyện.
-// Chưa cấu hình key OpenAI (server trả 503) thì hiện tin nhắn hướng dẫn
+// Chưa cấu hình key Gemini (server trả 503) thì hiện tin nhắn hướng dẫn
 // dùng ô "Mô tả triệu chứng" trên trang đặt lịch thay vì báo lỗi khô.
 
 type Msg = {
@@ -26,7 +26,7 @@ const QUICK_CHIPS = [
 ]
 
 const NOT_CONFIGURED =
-  "Trợ lý AI chưa được bật (chưa cấu hình khóa OpenAI). Bạn vẫn có thể dùng ô 'Mô tả triệu chứng' trên trang đặt lịch để gợi ý bác sĩ."
+  "Trợ lý AI chưa được bật (chưa cấu hình khóa Gemini). Bạn vẫn có thể dùng ô 'Mô tả triệu chứng' trên trang đặt lịch để gợi ý bác sĩ."
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false)

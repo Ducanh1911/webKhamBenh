@@ -1,19 +1,20 @@
-"""Chatbot tư vấn sức khỏe (Hướng B — lớp LLM OpenAI, model gpt-4o-mini).
+"""Chatbot tư vấn sức khỏe (Hướng B — lớp LLM Google Gemini, model gemini-2.0-flash, free tier).
 
 Luồng: tin nhắn mới nhất của user -> chạy triage rules (Hướng A) để lấy
 chuyên khoa / mức ưu tiên -> tra bác sĩ của chuyên khoa đó từ DB -> đưa
-tất cả vào system prompt rồi gọi OpenAI soạn câu trả lời tiếng Việt.
+tất cả vào system instruction rồi gọi Gemini soạn câu trả lời tiếng Việt.
 LLM chỉ được nói về bác sĩ / phí khám có trong context, không được bịa.
 Dấu hiệu nguy hiểm (priority=emergency) -> bắt buộc gọi cấp cứu 115.
 
-Key chỉ đọc từ settings.OPENAI_API_KEY (biến môi trường trên Render),
-không hardcode, không ghi log. Chưa có key hoặc OpenAI lỗi thì endpoint
+Key chỉ đọc từ settings.GEMINI_API_KEY (biến môi trường trên Render),
+không hardcode, không ghi log. Chưa có key hoặc Gemini lỗi thì endpoint
 trả lỗi có ý nghĩa, không crash server.
 """
 
 import logging
 
-from openai import OpenAI
+from google import genai
+from google.genai import types
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -23,7 +24,6 @@ from app.services.ai_triage import suggest_specialty
 
 logger = logging.getLogger(__name__)
 
-MODEL = "gpt-4o-mini"
 MAX_HISTORY = 10  # tối đa 10 tin gần nhất gửi cho LLM
 
 SYSTEM_PROMPT = """Bạn là trợ lý sức khỏe MediBook AI — hệ thống đặt lịch khám bệnh trực tuyến.
@@ -40,7 +40,7 @@ Quy tắc bắt buộc:
 
 
 class ChatUnavailableError(Exception):
-    """OpenAI không trả lời được (key sai, hết quota, timeout, lỗi mạng)."""
+    """Gemini không trả lời được (key sai, hết quota, timeout, lỗi mạng)."""
 
 
 def _build_system_prompt(triage: dict, doctors: list[dict]) -> str:
@@ -69,6 +69,25 @@ def _build_system_prompt(triage: dict, doctors: list[dict]) -> str:
     else:
         lines.append("- Không có bác sĩ cụ thể để gợi ý lúc này.")
     return SYSTEM_PROMPT + "\n" + "\n".join(lines)
+
+
+def _to_gemini_contents(messages: list[dict]) -> list[types.Content]:
+    """Chuyển history [{role: user|assistant, content}] sang format Gemini.
+
+    Gemini dùng role "model" thay cho "assistant", và tin đầu tiên phải là
+    user nên bỏ các tin model mở đầu nếu có.
+    """
+    contents: list[types.Content] = []
+    for m in messages:
+        role = "model" if m["role"] == "assistant" else "user"
+        contents.append(
+            types.Content(
+                role=role, parts=[types.Part.from_text(text=m["content"])]
+            )
+        )
+    while contents and contents[0].role == "model":
+        contents.pop(0)
+    return contents
 
 
 def chat_reply(messages: list[dict], db: Session) -> dict:
@@ -103,20 +122,30 @@ def chat_reply(messages: list[dict], db: Session) -> dict:
     system = _build_system_prompt(triage, doctors)
     history = messages[-MAX_HISTORY:]
     try:
-        client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)
-        resp = client.chat.completions.create(
-            model=MODEL,
-            messages=[{"role": "system", "content": system}] + history,
-            temperature=0.3,
-            max_tokens=600,
+        client = genai.Client(
+            api_key=settings.GEMINI_API_KEY,
+            http_options=types.HttpOptions(timeout=30_000),
         )
-        reply = (resp.choices[0].message.content or "").strip()
+        resp = client.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=_to_gemini_contents(history),
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                temperature=0.3,
+                max_output_tokens=600,
+            ),
+        )
+        try:
+            reply = (resp.text or "").strip()
+        except ValueError:
+            # Model không trả text (vd bị chặn): coi như rỗng.
+            reply = ""
     except Exception as e:  # key sai, hết quota, timeout, lỗi mạng...
         # Chỉ log tên lỗi, KHÔNG log key hay nội dung request.
-        logger.warning("OpenAI chat failed: %s", type(e).__name__)
-        raise ChatUnavailableError("OpenAI không trả lời được.") from e
+        logger.warning("Gemini chat failed: %s", type(e).__name__)
+        raise ChatUnavailableError("Gemini không trả lời được.") from e
     if not reply:
-        raise ChatUnavailableError("OpenAI trả về câu trả lời rỗng.")
+        raise ChatUnavailableError("Gemini trả về câu trả lời rỗng.")
 
     return {
         "reply": reply,
