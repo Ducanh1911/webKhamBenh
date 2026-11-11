@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # bằng biến môi trường trên Render, không commit key vào repo.
     # Chưa cấu hình thì endpoint chat trả 503.
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_MODEL: str = "gemini-3-flash-preview"
     # MoMo sandbox: cấu hình bằng biến môi trường trên Render, không
     # commit key vào repo. Chưa cấu hình thì endpoint thanh toán trả 503.
     MOMO_PARTNER_CODE: str = ""
