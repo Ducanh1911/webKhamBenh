@@ -1,5 +1,8 @@
 """Chatbot tư vấn sức khỏe (Hướng B — lớp LLM Google Gemini, model gemini-3-flash-preview, free tier).
 
+Gọi Gemini qua REST API trực tiếp bằng httpx (không dùng SDK google-genai:
+SDK trả ClientError trên Render dù cùng request gọi REST thì thành công).
+
 Luồng: tin nhắn mới nhất của user -> chạy triage rules (Hướng A) để lấy
 chuyên khoa / mức ưu tiên -> tra bác sĩ của chuyên khoa đó từ DB -> đưa
 tất cả vào system instruction rồi gọi Gemini soạn câu trả lời tiếng Việt.
@@ -13,8 +16,7 @@ trả lỗi có ý nghĩa, không crash server.
 
 import logging
 
-from google import genai
-from google.genai import types
+import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -25,6 +27,7 @@ from app.services.ai_triage import suggest_specialty
 logger = logging.getLogger(__name__)
 
 MAX_HISTORY = 10  # tối đa 10 tin gần nhất gửi cho LLM
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 SYSTEM_PROMPT = """Bạn là trợ lý sức khỏe MediBook AI — hệ thống đặt lịch khám bệnh trực tuyến.
 Nhiệm vụ: tư vấn sơ bộ bằng tiếng Việt, ngắn gọn, thân thiện, dễ hiểu.
@@ -71,23 +74,56 @@ def _build_system_prompt(triage: dict, doctors: list[dict]) -> str:
     return SYSTEM_PROMPT + "\n" + "\n".join(lines)
 
 
-def _to_gemini_contents(messages: list[dict]) -> list[types.Content]:
+def _to_gemini_contents(messages: list[dict]) -> list[dict]:
     """Chuyển history [{role: user|assistant, content}] sang format Gemini.
 
     Gemini dùng role "model" thay cho "assistant", và tin đầu tiên phải là
     user nên bỏ các tin model mở đầu nếu có.
     """
-    contents: list[types.Content] = []
+    contents: list[dict] = []
     for m in messages:
         role = "model" if m["role"] == "assistant" else "user"
-        contents.append(
-            types.Content(
-                role=role, parts=[types.Part.from_text(text=m["content"])]
-            )
-        )
-    while contents and contents[0].role == "model":
+        contents.append({"role": role, "parts": [{"text": m["content"]}]})
+    while contents and contents[0]["role"] == "model":
         contents.pop(0)
     return contents
+
+
+def _call_gemini(system: str, history: list[dict]) -> str:
+    """Gọi Gemini generateContent qua REST API, trả về text trả lời.
+
+    Raise ChatUnavailableError khi key sai, hết quota, timeout, lỗi mạng
+    hay model không trả text. Chỉ log tên lỗi, KHÔNG log key.
+    """
+    url = (
+        f"{GEMINI_API_BASE}/models/{settings.GEMINI_MODEL}:generateContent"
+    )
+    payload = {
+        "system_instruction": {"parts": [{"text": system}]},
+        "contents": _to_gemini_contents(history),
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 600},
+    }
+    try:
+        resp = httpx.post(
+            url,
+            params={"key": settings.GEMINI_API_KEY},
+            json=payload,
+            timeout=30.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:  # key sai, hết quota, timeout, lỗi mạng...
+        # Chỉ log tên lỗi, KHÔNG log key hay nội dung request.
+        logger.warning("Gemini chat failed: %s", type(e).__name__)
+        raise ChatUnavailableError("Gemini không trả lời được.") from e
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+        reply = "".join(p.get("text", "") for p in parts).strip()
+    except (KeyError, IndexError, TypeError):
+        reply = ""
+    if not reply:
+        raise ChatUnavailableError("Gemini trả về câu trả lời rỗng.")
+    return reply
 
 
 def chat_reply(messages: list[dict], db: Session) -> dict:
@@ -121,31 +157,7 @@ def chat_reply(messages: list[dict], db: Session) -> dict:
 
     system = _build_system_prompt(triage, doctors)
     history = messages[-MAX_HISTORY:]
-    try:
-        client = genai.Client(
-            api_key=settings.GEMINI_API_KEY,
-            http_options=types.HttpOptions(timeout=30_000),
-        )
-        resp = client.models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=_to_gemini_contents(history),
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                temperature=0.3,
-                max_output_tokens=600,
-            ),
-        )
-        try:
-            reply = (resp.text or "").strip()
-        except ValueError:
-            # Model không trả text (vd bị chặn): coi như rỗng.
-            reply = ""
-    except Exception as e:  # key sai, hết quota, timeout, lỗi mạng...
-        # Chỉ log tên lỗi, KHÔNG log key hay nội dung request.
-        logger.warning("Gemini chat failed: %s", type(e).__name__)
-        raise ChatUnavailableError("Gemini không trả lời được.") from e
-    if not reply:
-        raise ChatUnavailableError("Gemini trả về câu trả lời rỗng.")
+    reply = _call_gemini(system, history)
 
     return {
         "reply": reply,
