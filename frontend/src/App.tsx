@@ -13,6 +13,9 @@ export default function App() {
   const [me, setMe] = useState<Me | null>(null)
   const [meLoading, setMeLoading] = useState(false)
   const [authNotice, setAuthNotice] = useState('')
+  // Bác sĩ chờ đặt lịch khi bấm "Đặt lịch" trong gợi ý chatbot. Giữ lại
+  // cả khi chưa đăng nhập để đăng nhập xong Dashboard mở modal luôn.
+  const [bookDoctorId, setBookDoctorId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!authed) { setMe(null); setMeLoading(false); return }
@@ -26,6 +29,7 @@ export default function App() {
     setMe(null)
     setMeLoading(false)
     setAuthNotice('')
+    setBookDoctorId(null)
   }
 
   if (authed) {
@@ -46,22 +50,22 @@ export default function App() {
     }
     return (
       <>
-        <Dashboard onLogout={logout} onClearAuthNotice={() => setAuthNotice('')} />
+        <Dashboard onLogout={logout} onClearAuthNotice={() => setAuthNotice('')} bookDoctorId={bookDoctorId} onBookDoctorHandled={() => setBookDoctorId(null)} />
         {authNotice && <SuccessPopup message={authNotice} onClose={() => setAuthNotice('')} />}
-        <ChatWidget />
+        <ChatWidget onBookDoctor={setBookDoctorId} />
       </>
     )
   }
   if (view === 'register') return (
     <>
       <RegisterPage onSuccess={() => { setAuthNotice('Đăng ký thành công.'); setAuthed(true) }} onGoLogin={() => setView('login')} />
-      <ChatWidget />
+      <ChatWidget onBookDoctor={setBookDoctorId} />
     </>
   )
   return (
     <>
       <LoginPage onSuccess={() => { setAuthNotice('Đăng nhập thành công.'); setAuthed(true) }} onGoRegister={() => setView('register')} />
-      <ChatWidget />
+      <ChatWidget onBookDoctor={setBookDoctorId} />
     </>
   )
 }

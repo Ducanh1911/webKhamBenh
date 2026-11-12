@@ -6,10 +6,13 @@ import { sendChatMessage, type ChatMessage } from '../lib/api'
 // Chưa cấu hình key Gemini (server trả 503) thì hiện tin nhắn hướng dẫn
 // dùng ô "Mô tả triệu chứng" trên trang đặt lịch thay vì báo lỗi khô.
 
+type SuggestedDoctor = { id: number; name: string; consultation_fee: number }
+type Suggestion = { specialtyName: string; doctors: SuggestedDoctor[] }
+
 type Msg = {
   role: 'user' | 'assistant'
   content: string
-  suggestion?: string | null
+  suggestion?: Suggestion | null
 }
 
 const WELCOME: Msg = {
@@ -28,7 +31,7 @@ const QUICK_CHIPS = [
 const NOT_CONFIGURED =
   "Trợ lý AI chưa được bật (chưa cấu hình khóa Gemini). Bạn vẫn có thể dùng ô 'Mô tả triệu chứng' trên trang đặt lịch để gợi ý bác sĩ."
 
-export default function ChatWidget() {
+export default function ChatWidget({ onBookDoctor }: { onBookDoctor?: (doctorId: number) => void }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([WELCOME])
   const [input, setInput] = useState('')
@@ -53,12 +56,12 @@ export default function ChatWidget() {
     setLoading(true)
     try {
       const data = await sendChatMessage(history)
-      let suggestion: string | null = null
+      let suggestion: Suggestion | null = null
       if (data.specialty && data.doctors.length > 0) {
-        const list = data.doctors
-          .map(d => `${d.name} (${d.consultation_fee.toLocaleString('vi-VN')}đ)`)
-          .join(', ')
-        suggestion = `Gợi ý: ${data.specialty.name} — ${list}. Bạn có thể đặt lịch ở tab Đặt lịch khám.`
+        suggestion = {
+          specialtyName: data.specialty.name,
+          doctors: data.doctors.map(d => ({ id: d.id, name: d.name, consultation_fee: d.consultation_fee })),
+        }
       }
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply, suggestion }])
     } catch (e) {
@@ -101,9 +104,24 @@ export default function ChatWidget() {
                 >
                   {m.content}
                   {m.suggestion && (
-                    <p className="mt-2 px-2 py-1.5 rounded-lg bg-brand-50 border border-brand-100 text-brand-800 text-xs">
-                      {m.suggestion}
-                    </p>
+                    <div className="mt-2 px-2 py-1.5 rounded-lg bg-brand-50 border border-brand-100 text-brand-800 text-xs">
+                      <p className="font-medium">Gợi ý: {m.suggestion.specialtyName}</p>
+                      {m.suggestion.doctors.map(d => (
+                        <div key={d.id} className="mt-1 flex items-center justify-between gap-2">
+                          <span>{d.name} ({d.consultation_fee.toLocaleString('vi-VN')}đ)</span>
+                          {onBookDoctor && (
+                            <button
+                              type="button"
+                              onClick={() => { onBookDoctor(d.id); setOpen(false) }}
+                              className="shrink-0 px-2.5 py-1 rounded-full bg-brand-700 hover:bg-brand-800 text-white text-xs font-medium"
+                            >
+                              Đặt lịch
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {!onBookDoctor && <p className="mt-1">Bạn có thể đặt lịch ở tab Đặt lịch khám.</p>}
+                    </div>
                   )}
                 </div>
               </div>

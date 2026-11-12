@@ -27,7 +27,12 @@ function fmtDateTime(s: string) {
 
 const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '13:30', '14:30', '15:30', '16:30']
 
-export default function Dashboard({ onLogout, onClearAuthNotice }: { onLogout: () => void; onClearAuthNotice?: () => void }) {
+export default function Dashboard({ onLogout, onClearAuthNotice, bookDoctorId, onBookDoctorHandled }: {
+  onLogout: () => void
+  onClearAuthNotice?: () => void
+  bookDoctorId?: number | null
+  onBookDoctorHandled?: () => void
+}) {
   const [specialties, setSpecialties] = useState<Specialty[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -72,6 +77,45 @@ export default function Dashboard({ onLogout, onClearAuthNotice }: { onLogout: (
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingDoctor, date])
+  // Mở modal đặt lịch khi người dùng bấm "Đặt lịch" trong gợi ý chatbot.
+  // Bác sĩ gợi ý có thể không nằm trong trang/lọc hiện tại nên tìm trong
+  // danh sách đã tải trước, nếu không có thì tải toàn bộ (tối đa 100).
+  // Nếu bấm khi chưa đăng nhập, App giữ lại id này và Dashboard mở modal
+  // ngay sau khi đăng nhập xong (chờ tải xong danh sách bác sĩ).
+  useEffect(() => {
+    if (!bookDoctorId || loading) return
+    let cancelled = false
+    const found = doctors.find(d => d.id === bookDoctorId)
+    if (found) {
+      setView('booking')
+      setBookingDoctor(found)
+      setNotice('')
+      setError('')
+      onBookDoctorHandled?.()
+      return
+    }
+    ;(async () => {
+      try {
+        const all = await listDoctors(undefined, 1, 100)
+        if (cancelled) return
+        const doc = all.doctors.find(d => d.id === bookDoctorId)
+        if (doc) {
+          setView('booking')
+          setBookingDoctor(doc)
+          setNotice('')
+          setError('')
+        } else {
+          setError('Không tìm thấy bác sĩ được gợi ý.')
+        }
+      } catch {
+        if (!cancelled) setError('Không tải được thông tin bác sĩ.')
+      } finally {
+        if (!cancelled) onBookDoctorHandled?.()
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookDoctorId, loading])
   const [symptoms, setSymptoms] = useState('')
   const [triage, setTriage] = useState<TriageResult | null>(null)
   const [triaging, setTriaging] = useState(false)
