@@ -177,6 +177,7 @@ def suggest_specialty(symptoms: str) -> dict:
             "priority": "routine",
             "follow_up_questions": [],
             "reason": "Chưa nhập triệu chứng.",
+            "matched_keywords": [],
             "confidence": "low",
             "source": "rules",
             "disclaimer": DISCLAIMER,
@@ -185,7 +186,7 @@ def suggest_specialty(symptoms: str) -> dict:
     # 1. Dấu hiệu nguy hiểm -> emergency, vượt mọi mapping.
     emergency_hits = _matched_keywords(text, EMERGENCY_KEYWORDS)
     if emergency_hits:
-        specialty_id = _match_specialty_id(text)
+        specialty_id, matched = _match_specialty_id(text, return_keywords=True)
         return {
             "specialty": (
                 {"id": specialty_id, "name": SPECIALTIES[specialty_id]}
@@ -196,6 +197,7 @@ def suggest_specialty(symptoms: str) -> dict:
             "priority": "emergency",
             "follow_up_questions": [],
             "reason": f"Dấu hiệu nguy hiểm: {', '.join(emergency_hits)}. {EMERGENCY_MESSAGE}",
+            "matched_keywords": matched,
             "confidence": "high",
             "source": "rules",
             "disclaimer": EMERGENCY_MESSAGE,
@@ -219,6 +221,7 @@ def suggest_specialty(symptoms: str) -> dict:
         "priority": "routine",
         "follow_up_questions": FOLLOW_UP_QUESTIONS[specialty_id],
         "reason": reason,
+        "matched_keywords": matched,
         "confidence": confidence,
         "source": "rules",
         "disclaimer": DISCLAIMER,
@@ -255,3 +258,57 @@ def _match_specialty_id(text: str, return_keywords: bool = False):
     ):
         return (5, skin_hits) if return_keywords else 5
     return (None, []) if return_keywords else None
+
+
+# Tên chuyên khoa khi người dùng hỏi trực tiếp về bác sĩ của chuyên khoa
+# đó ("Bác sĩ tim mạch", "khám răng ở đâu?") — KHÔNG phải mô tả triệu
+# chứng, nên chatbot xử lý riêng: giới thiệu bác sĩ, không triage.
+# Chỉ dùng cụm từ đầy đủ; "mắt" đứng một mình dễ nhầm với "mất ngủ".
+SPECIALTY_NAME_KEYWORDS = [
+    ("tim mach", 4),
+    ("rang ham mat", 3),
+    ("da lieu", 5),
+    ("nhi khoa", 2),
+    ("noi tong quat", 1),
+    ("bac si nhi", 2),
+    ("kham nhi", 2),
+    ("bac si rang", 3),
+    ("kham rang", 3),
+    ("bac si mat", 6),
+    ("kham mat", 6),
+    ("chuyen khoa mat", 6),
+    ("bac si da", 5),
+    ("kham da", 5),
+    ("bac si tim", 4),
+    ("kham tim", 4),
+]
+
+
+def match_specialty_name(text: str) -> int | None:
+    """Trả về id chuyên khoa khi câu hỏi nhắc tên chuyên khoa, còn không None."""
+    normalized = _normalize(text or "")
+    for phrase, specialty_id in SPECIALTY_NAME_KEYWORDS:
+        if _contains_word(normalized, phrase):
+            return specialty_id
+    return None
+
+
+# Câu hỏi về cách dùng hệ thống (đặt/hủy lịch, đăng ký, thanh toán...)
+# — không phải mô tả triệu chứng, chatbot trả lời hướng dẫn và KHÔNG
+# gợi ý chuyên khoa/bác sĩ. Chỉ dùng cụm từ thủ tục cụ thể; "làm sao" /
+# "như thế nào" đứng một mình quá chung chung nên không đưa vào.
+HOWTO_KEYWORDS = [
+    "dat lich", "dat kham", "hen kham", "lich hen", "lich kham",
+    "dang ky", "dang nhap", "quen mat khau", "doi mat khau",
+    "huy lich", "doi lich", "thanh toan", "momo",
+    "gia kham", "phi kham", "gia tien", "bao nhieu tien",
+    "gio lam viec", "gio mo cua", "mo cua may gio",
+    "dia chi", "kham o dau", "benh vien o dau", "phong kham o dau",
+    "huong dan", "cach su dung", "chuyen khoa",
+]
+
+
+def is_howto_question(text: str) -> bool:
+    """Câu hỏi về cách dùng hệ thống (không phải triệu chứng)?"""
+    normalized = _normalize(text or "")
+    return any(_contains_word(normalized, k) for k in HOWTO_KEYWORDS)
