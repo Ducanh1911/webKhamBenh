@@ -49,11 +49,12 @@ export async function login(email: string, password: string, remember = true) {
 }
 
 // Quên mật khẩu (không cần đăng nhập): nhập email đã đăng ký + mật khẩu
-// mới là đổi được. Tài khoản quản trị không đặt lại được qua form này.
-export async function forgotPassword(email: string, newPassword: string): Promise<{ message: string }> {
+// cũ + mật khẩu mới; chỉ khi mật khẩu cũ đúng mới cho đổi. Tài khoản
+// quản trị không đặt lại được qua form này.
+export async function forgotPassword(email: string, currentPassword: string, newPassword: string): Promise<{ message: string }> {
   const res = await fetch(`${API}/api/v1/auth/forgot-password`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, new_password: newPassword }),
+    body: JSON.stringify({ email, current_password: currentPassword, new_password: newPassword }),
   })
   if (!res.ok) await handleError(res, 'Đặt lại mật khẩu không thành công')
   return res.json()

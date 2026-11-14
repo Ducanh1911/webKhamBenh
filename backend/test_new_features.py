@@ -285,18 +285,25 @@ check("sau các lần PATCH: lọc cancelled -> 3 (a1, a3, a4)",
 print("== Quên mật khẩu ==")
 # bn2 vẫn giữ mật khẩu gốc PW (chỉ bn1 và admin đã đổi ở mục trên).
 r = client.post("/api/v1/auth/forgot-password",
-                json={"email": "khong-co@test.vn", "new_password": "matkhauMoi2"})
+                json={"email": "khong-co@test.vn", "current_password": "bat-ky", "new_password": "matkhauMoi2"})
 check("email chưa đăng ký -> 404 + đúng thông báo",
       r.status_code == 404 and r.json().get("detail") == "Email chưa được đăng ký", r.text[:200])
 r = client.post("/api/v1/auth/forgot-password",
-                json={"email": "bn2@test.vn", "new_password": "12345"})
+                json={"email": "bn2@test.vn", "current_password": "sai-hoan-toan", "new_password": "matkhauMoi2"})
+check("mật khẩu cũ sai -> 400 + đúng thông báo",
+      r.status_code == 400 and r.json().get("detail") == "Mật khẩu cũ không đúng", r.text[:200])
+r = client.post("/api/v1/auth/forgot-password",
+                json={"email": "bn2@test.vn", "current_password": PW, "new_password": "12345"})
 check("mật khẩu mới < 6 ký tự -> 400", r.status_code == 400, r.text[:200])
 r = client.post("/api/v1/auth/forgot-password",
-                json={"email": "admin@test.vn", "new_password": "matkhauMoi2"})
+                json={"email": "bn2@test.vn", "current_password": PW, "new_password": PW})
+check("mật khẩu mới trùng mật khẩu cũ -> 400", r.status_code == 400, r.text[:200])
+r = client.post("/api/v1/auth/forgot-password",
+                json={"email": "admin@test.vn", "current_password": "adminMoi1", "new_password": "matkhauMoi2"})
 check("tài khoản admin không đặt lại được qua form -> 403",
       r.status_code == 403, r.text[:200])
 r = client.post("/api/v1/auth/forgot-password",
-                json={"email": "bn2@test.vn", "new_password": "matkhauMoi2"})
+                json={"email": "bn2@test.vn", "current_password": PW, "new_password": "matkhauMoi2"})
 check("đặt lại mật khẩu thành công -> 200 + đúng thông báo",
       r.status_code == 200 and r.json().get("message") == "Đã đặt lại mật khẩu, mời đăng nhập bằng mật khẩu mới.", r.text[:200])
 r = client.post("/api/v1/auth/login", json={"email": "bn2@test.vn", "password": "matkhauMoi2"})

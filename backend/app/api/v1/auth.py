@@ -53,8 +53,9 @@ def change_password(payload: ChangePasswordRequest, user: User = Depends(get_cur
 
 @router.post("/forgot-password")
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    """Đặt lại mật khẩu khi quên, không cần đăng nhập (form "Quên mật khẩu?"
-    ở trang đăng nhập): nhập email đã đăng ký + mật khẩu mới là đổi được.
+    """Đặt lại mật khẩu từ form "Quên mật khẩu?" ở trang đăng nhập, không
+    cần đăng nhập trước: nhập email đã đăng ký + MẬT KHẨU CŨ + mật khẩu mới.
+    Chỉ khi mật khẩu cũ đúng mới cho đổi (user yêu cầu 14/11).
 
     Chưa có bước xác minh qua email (gửi mã/link cần cấu hình SMTP riêng,
     để dành cho hướng phát triển sau) — vì vậy tài khoản quản trị KHÔNG
@@ -69,8 +70,12 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
             status_code=403,
             detail="Tài khoản quản trị không đặt lại mật khẩu qua form này, vui lòng liên hệ quản trị hệ thống",
         )
+    if not verify_password(payload.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Mật khẩu cũ không đúng")
     if len(payload.new_password) < 6:
         raise HTTPException(status_code=400, detail="Mật khẩu mới phải có ít nhất 6 ký tự")
+    if payload.new_password == payload.current_password:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải khác mật khẩu cũ")
     user.hashed_password = hash_password(payload.new_password)
     db.commit()
     return {"message": "Đã đặt lại mật khẩu, mời đăng nhập bằng mật khẩu mới."}

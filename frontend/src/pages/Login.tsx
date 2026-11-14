@@ -10,8 +10,10 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
   const [error, setError] = useState('')
   const dismissError = useCallback(() => setError(''), [])
   const [loading, setLoading] = useState(false)
-  // Form đặt lại mật khẩu (không cần đăng nhập): email + mật khẩu mới.
+  // Form đặt lại mật khẩu (không cần đăng nhập): email + mật khẩu cũ +
+  // mật khẩu mới; chỉ khi mật khẩu cũ đúng mới cho đổi.
   const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotCurrent, setForgotCurrent] = useState('')
   const [forgotNew, setForgotNew] = useState('')
   const [forgotConfirm, setForgotConfirm] = useState('')
   const [forgotFormError, setForgotFormError] = useState('')
@@ -34,13 +36,15 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
 
   async function submitForgot(e: React.FormEvent) {
     e.preventDefault()
+    if (!forgotCurrent) { setForgotFormError('Vui lòng nhập mật khẩu cũ.'); return }
     if (forgotNew.length < 6) { setForgotFormError('Mật khẩu mới phải có ít nhất 6 ký tự.'); return }
+    if (forgotNew === forgotCurrent) { setForgotFormError('Mật khẩu mới phải khác mật khẩu cũ.'); return }
     if (forgotNew !== forgotConfirm) { setForgotFormError('Mật khẩu nhập lại chưa khớp với mật khẩu mới.'); return }
     setForgotLoading(true)
     setForgotFormError('')
     setError('')
     try {
-      const data = await forgotPassword(forgotEmail.trim(), forgotNew)
+      const data = await forgotPassword(forgotEmail.trim(), forgotCurrent, forgotNew)
       setForgotDone(data.message || 'Đã đặt lại mật khẩu, mời đăng nhập bằng mật khẩu mới.')
       setEmail(forgotEmail.trim())
     } catch (err) {
@@ -56,12 +60,16 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
     setError('')
     setForgotDone('')
     setForgotFormError('')
+    setForgotCurrent('')
+    setForgotNew('')
+    setForgotConfirm('')
   }
 
   function backToLogin() {
     setShowForgot(false)
     setForgotDone('')
     setForgotFormError('')
+    setForgotCurrent('')
     setForgotNew('')
     setForgotConfirm('')
   }
@@ -104,7 +112,7 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
           </div>
 
           <h2 className="text-[26px] font-semibold tracking-tight text-ink-900">{showForgot ? 'Đặt lại mật khẩu' : 'Chào mừng trở lại'}</h2>
-          <p className="text-ink-500 text-[15px] mt-1.5">{showForgot ? 'Nhập email đã đăng ký và mật khẩu mới của bạn.' : 'Đăng nhập để xem lịch khám và hồ sơ của bạn.'}</p>
+          <p className="text-ink-500 text-[15px] mt-1.5">{showForgot ? 'Nhập email đã đăng ký, mật khẩu cũ và mật khẩu mới của bạn.' : 'Đăng nhập để xem lịch khám và hồ sơ của bạn.'}</p>
 
           {showForgot ? (
           <form onSubmit={submitForgot} className="mt-8 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-card">
@@ -128,6 +136,15 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
                   <input
                     type="email" required value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
                     placeholder="ban@example.com" autoComplete="email"
+                    className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 bg-white px-3.5 text-[15px] placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition"
+                  />
+                </label>
+
+                <label className="block mt-5">
+                  <span className="text-sm font-medium text-ink-900">Mật khẩu cũ</span>
+                  <input
+                    type="password" required value={forgotCurrent} onChange={e => setForgotCurrent(e.target.value)}
+                    placeholder="Nhập mật khẩu cũ" autoComplete="current-password"
                     className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 bg-white px-3.5 text-[15px] placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition"
                   />
                 </label>
