@@ -3,6 +3,7 @@ import { listDoctors, listSpecialties, listMyAppointments, createAppointment, ge
 import Pagination from '../components/Pagination'
 import ErrorPopup from '../components/ErrorPopup'
 import SuccessPopup from '../components/SuccessPopup'
+import ChangePasswordModal from '../components/ChangePasswordModal'
 
 const PRIORITY_LABEL: Record<string, string> = {
   routine: 'Khám thường',
@@ -119,6 +120,7 @@ export default function Dashboard({ onLogout, onClearAuthNotice, bookDoctorId, o
   const [symptoms, setSymptoms] = useState('')
   const [triage, setTriage] = useState<TriageResult | null>(null)
   const [triaging, setTriaging] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
 
   async function onTriage(e: React.FormEvent) {
     e.preventDefault()
@@ -278,6 +280,7 @@ export default function Dashboard({ onLogout, onClearAuthNotice, bookDoctorId, o
             <span className="font-semibold text-lg tracking-tight">MediBook <span className="text-brand-700">AI</span></span>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => setShowChangePassword(true)} className="text-sm font-medium text-ink-500 hover:text-ink-900 border border-slate-200 rounded-lg px-3.5 py-2 bg-white">Đổi mật khẩu</button>
             <button onClick={onLogout} className="text-sm font-medium text-ink-500 hover:text-ink-900 border border-slate-200 rounded-lg px-3.5 py-2 bg-white">Đăng xuất</button>
           </div>
         </div>
@@ -444,6 +447,9 @@ export default function Dashboard({ onLogout, onClearAuthNotice, bookDoctorId, o
               </div>
             </div>
           </div>
+        )}
+        {showChangePassword && (
+          <ChangePasswordModal onClose={() => setShowChangePassword(false)} onSuccess={setNotice} />
         )}
     </div>
   )

@@ -4,6 +4,7 @@ import LoginPage from './pages/Login'
 import RegisterPage from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import AdminPage from './pages/Admin'
+import DoctorPage from './pages/Doctor'
 import SuccessPopup from './components/SuccessPopup'
 import ChatWidget from './components/ChatWidget'
 
@@ -43,6 +44,18 @@ export default function App() {
       return (
         <>
           <AdminPage onLogout={logout} onClearAuthNotice={() => setAuthNotice('')} />
+          {authNotice && <SuccessPopup message={authNotice} onClose={() => setAuthNotice('')} />}
+          <ChatWidget />
+        </>
+      )
+    }
+    // Bác sĩ cũng tách biệt hoàn toàn: chỉ vào trang Bác sĩ, không vào
+    // được trang đặt lịch. So sánh không phân biệt hoa/thường vì role
+    // trong DB còn sót dạng chữ hoa.
+    if (me?.role?.toLowerCase() === 'doctor') {
+      return (
+        <>
+          <DoctorPage onLogout={logout} onClearAuthNotice={() => setAuthNotice('')} />
           {authNotice && <SuccessPopup message={authNotice} onClose={() => setAuthNotice('')} />}
           <ChatWidget />
         </>

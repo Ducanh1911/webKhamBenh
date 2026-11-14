@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { login } from '../lib/api'
+import { login, forgotPassword } from '../lib/api'
 import ErrorPopup from '../components/ErrorPopup'
 
 export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () => void; onGoRegister: () => void }) {
@@ -10,6 +10,13 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
   const [error, setError] = useState('')
   const dismissError = useCallback(() => setError(''), [])
   const [loading, setLoading] = useState(false)
+  // Form đặt lại mật khẩu (không cần đăng nhập): email + mật khẩu mới.
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotNew, setForgotNew] = useState('')
+  const [forgotConfirm, setForgotConfirm] = useState('')
+  const [forgotFormError, setForgotFormError] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotDone, setForgotDone] = useState('')
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -23,6 +30,40 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
     } finally {
       setLoading(false)
     }
+  }
+
+  async function submitForgot(e: React.FormEvent) {
+    e.preventDefault()
+    if (forgotNew.length < 6) { setForgotFormError('Mật khẩu mới phải có ít nhất 6 ký tự.'); return }
+    if (forgotNew !== forgotConfirm) { setForgotFormError('Mật khẩu nhập lại chưa khớp với mật khẩu mới.'); return }
+    setForgotLoading(true)
+    setForgotFormError('')
+    setError('')
+    try {
+      const data = await forgotPassword(forgotEmail.trim(), forgotNew)
+      setForgotDone(data.message || 'Đã đặt lại mật khẩu, mời đăng nhập bằng mật khẩu mới.')
+      setEmail(forgotEmail.trim())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Đặt lại mật khẩu không thành công.')
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
+  function openForgot() {
+    setForgotEmail(email)
+    setShowForgot(true)
+    setError('')
+    setForgotDone('')
+    setForgotFormError('')
+  }
+
+  function backToLogin() {
+    setShowForgot(false)
+    setForgotDone('')
+    setForgotFormError('')
+    setForgotNew('')
+    setForgotConfirm('')
   }
 
   return (
@@ -62,9 +103,68 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
             <span className="font-semibold text-lg">MediBook AI</span>
           </div>
 
-          <h2 className="text-[26px] font-semibold tracking-tight text-ink-900">Chào mừng trở lại</h2>
-          <p className="text-ink-500 text-[15px] mt-1.5">Đăng nhập để xem lịch khám và hồ sơ của bạn.</p>
+          <h2 className="text-[26px] font-semibold tracking-tight text-ink-900">{showForgot ? 'Đặt lại mật khẩu' : 'Chào mừng trở lại'}</h2>
+          <p className="text-ink-500 text-[15px] mt-1.5">{showForgot ? 'Nhập email đã đăng ký và mật khẩu mới của bạn.' : 'Đăng nhập để xem lịch khám và hồ sơ của bạn.'}</p>
 
+          {showForgot ? (
+          <form onSubmit={submitForgot} className="mt-8 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-card">
+            {error && <ErrorPopup message={error} onClose={dismissError} />}
+            {forgotDone ? (
+              <>
+                <p className="rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-800 text-sm px-3.5 py-2.5">{forgotDone}</p>
+                <button
+                  type="button" onClick={backToLogin}
+                  className="mt-5 w-full h-11 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-[15px] font-medium transition"
+                >
+                  Quay lại đăng nhập
+                </button>
+              </>
+            ) : (
+              <>
+                {forgotFormError && <p className="rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm px-3.5 py-2.5">{forgotFormError}</p>}
+
+                <label className="block">
+                  <span className="text-sm font-medium text-ink-900">Email đã đăng ký</span>
+                  <input
+                    type="email" required value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+                    placeholder="ban@example.com" autoComplete="email"
+                    className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 bg-white px-3.5 text-[15px] placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition"
+                  />
+                </label>
+
+                <label className="block mt-5">
+                  <span className="text-sm font-medium text-ink-900">Mật khẩu mới</span>
+                  <input
+                    type="password" required value={forgotNew} onChange={e => setForgotNew(e.target.value)}
+                    placeholder="Ít nhất 6 ký tự" autoComplete="new-password"
+                    className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 bg-white px-3.5 text-[15px] placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition"
+                  />
+                </label>
+
+                <label className="block mt-5">
+                  <span className="text-sm font-medium text-ink-900">Nhập lại mật khẩu mới</span>
+                  <input
+                    type="password" required value={forgotConfirm} onChange={e => setForgotConfirm(e.target.value)}
+                    placeholder="Nhập lại mật khẩu mới" autoComplete="new-password"
+                    className="mt-1.5 w-full h-11 rounded-lg border border-slate-300 bg-white px-3.5 text-[15px] placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 transition"
+                  />
+                </label>
+
+                <button
+                  type="submit" disabled={forgotLoading}
+                  className="mt-6 w-full h-11 rounded-lg bg-brand-700 hover:bg-brand-800 disabled:opacity-60 text-white text-[15px] font-medium transition"
+                >
+                  {forgotLoading ? 'Đang đặt lại…' : 'Đặt lại mật khẩu'}
+                </button>
+
+                <p className="mt-5 text-center text-sm text-ink-500">
+                  Nhớ lại mật khẩu?{' '}
+                  <button type="button" onClick={backToLogin} className="font-medium text-brand-700 hover:text-brand-800">Quay lại đăng nhập</button>
+                </p>
+              </>
+            )}
+          </form>
+          ) : (
           <form onSubmit={submit} className="mt-8 bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-card">
             {error && <ErrorPopup message={error} onClose={dismissError} />}
 
@@ -90,13 +190,8 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
               <label className="flex items-center gap-2 text-ink-700 cursor-pointer">
                 <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="w-4 h-4 accent-brand-700 rounded" /> Ghi nhớ đăng nhập
               </label>
-              <button type="button" onClick={() => setShowForgot(v => !v)} className="font-medium text-brand-700 hover:text-brand-800">Quên mật khẩu?</button>
+              <button type="button" onClick={openForgot} className="font-medium text-brand-700 hover:text-brand-800">Quên mật khẩu?</button>
             </div>
-            {showForgot && (
-              <p className="mt-4 rounded-lg bg-amber-50 border border-amber-100 text-amber-800 text-sm px-3.5 py-2.5">
-                Tính năng đặt lại mật khẩu qua email chưa được bật. Bạn có thể đăng ký tài khoản mới bằng email khác, hoặc liên hệ phòng khám để được hỗ trợ đặt lại mật khẩu.
-              </p>
-            )}
 
             <button
               type="submit" disabled={loading}
@@ -110,6 +205,7 @@ export default function LoginPage({ onSuccess, onGoRegister }: { onSuccess: () =
               <button type="button" onClick={onGoRegister} className="font-medium text-brand-700 hover:text-brand-800">Đăng ký miễn phí</button>
             </p>
           </form>
+          )}
 
           <p className="mt-6 text-center text-xs leading-relaxed text-ink-500">
             Bằng việc tiếp tục, bạn đồng ý với Điều khoản sử dụng và Chính sách bảo mật của MediBook AI.

@@ -48,6 +48,17 @@ export async function login(email: string, password: string, remember = true) {
   return data
 }
 
+// Quên mật khẩu (không cần đăng nhập): nhập email đã đăng ký + mật khẩu
+// mới là đổi được. Tài khoản quản trị không đặt lại được qua form này.
+export async function forgotPassword(email: string, newPassword: string): Promise<{ message: string }> {
+  const res = await fetch(`${API}/api/v1/auth/forgot-password`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, new_password: newPassword }),
+  })
+  if (!res.ok) await handleError(res, 'Đặt lại mật khẩu không thành công')
+  return res.json()
+}
+
 export type Specialty = { id: number; name: string; description?: string | null }
 export type Doctor = {
   id: number; name: string; specialty_id: number; specialty_name: string;
@@ -159,6 +170,15 @@ export async function getMe(): Promise<Me> {
   if (!res.ok) await handleError(res, 'Không tải được thông tin tài khoản')
   return res.json()
 }
+export async function changePassword(current_password: string, new_password: string): Promise<{ message: string }> {
+  const res = await fetch(`${API}/api/v1/auth/change-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ current_password, new_password }),
+  })
+  if (!res.ok) await handleError(res, 'Đổi mật khẩu không thành công, vui lòng thử lại')
+  return res.json()
+}
 
 export type AdminAppointment = Appointment & {
   patient_id: number; patient_name: string; patient_email: string
@@ -225,5 +245,37 @@ export async function cancelAppointment(id: number): Promise<Appointment> {
     method: 'POST', headers: authHeaders(),
   })
   if (!res.ok) await handleError(res, 'Hủy lịch không thành công')
+  return res.json()
+}
+
+export type DoctorMe = {
+  doctor_id: number; user_id: number; full_name: string; email: string; phone?: string | null
+  specialty_id: number; specialty_name: string; clinic_name: string
+  years_experience: number; consultation_fee: number; bio?: string | null
+  total_appointments: number; pending_appointments: number
+  confirmed_appointments: number; today_appointments: number
+}
+export type DoctorAppointment = {
+  id: number; patient_id: number; patient_name: string; patient_email: string
+  patient_phone?: string | null; start_at: string; reason?: string | null; status: string
+}
+export async function getDoctorMe(): Promise<DoctorMe> {
+  const res = await fetch(`${API}/api/v1/doctor/me`, { headers: authHeaders() })
+  if (!res.ok) await handleError(res, 'Không tải được hồ sơ bác sĩ')
+  return res.json()
+}
+export async function listDoctorAppointments(status?: string, page = 1, pageSize = 6): Promise<Paginated<DoctorAppointment>> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+  if (status) params.set('status', status)
+  const res = await fetch(`${API}/api/v1/doctor/appointments?${params}`, { headers: authHeaders() })
+  if (!res.ok) await handleError(res, 'Không tải được danh sách lịch hẹn')
+  return res.json()
+}
+export async function updateDoctorAppointmentStatus(id: number, status: string): Promise<DoctorAppointment> {
+  const res = await fetch(`${API}/api/v1/doctor/appointments/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ status }),
+  })
+  if (!res.ok) await handleError(res, 'Đổi trạng thái lịch hẹn không thành công')
   return res.json()
 }
